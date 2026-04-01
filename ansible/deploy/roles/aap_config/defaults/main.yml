@@ -60,7 +60,7 @@ aap_instructors_team_name: "destination-automation-instructors"
 aap_participants_team_name: "destination-automation-participants"
 
 # Login password generation fallback (used when env/password vars are unset)
-aap_password_store_dir: "/tmp/dev-destination-automation-passwords"
+aap_password_store_dir: "/tmp/workshop-destination-automation-passwords"
 aap_instructor_password_store_file: "{{ aap_password_store_dir }}/aap_instructor_password"
 aap_eda_service_account_password_store_file: "{{ aap_password_store_dir }}/aap_eda_service_account_password"
 
@@ -301,7 +301,7 @@ aap_test_job_template_become_enabled: false
 # In external mode, targets all (when using groups, administrators update group membership)
 aap_job_template_target_hosts: "{{ aap_workshop_group_name if aap_deploy_mode == 'local' else 'all' }}"
 aap_dynatrace_target_group_name: "destination-automation"
-aap_destination_automation_base_dir: "{{ lookup('ansible.builtin.env', 'AAP_DESTINATION_AUTOMATION_BASE_DIR') | default('/home/ec2-user/apps/dev-destination-automation', true) }}"
+aap_destination_automation_base_dir: "{{ lookup('ansible.builtin.env', 'AAP_DESTINATION_AUTOMATION_BASE_DIR') | default('/home/ec2-user/workshop-destination-automation', true) }}"
 aap_grant_service_account_source_access: true
 aap_source_access_home_dir: "/home/ec2-user"
 
@@ -716,7 +716,7 @@ aap_dt_de_image: "{{ aap_custom_ee_registry_host }}/destination-automation-dt-de
 # EDA Project — requires GITHUB_USERNAME and GITHUB_TOKEN env vars at playbook run time.
 aap_eda_project_name: "destination-automation"
 aap_eda_project_description: "Workshop EDA rulebooks project"
-aap_eda_project_url: "https://github.com/popecruzdt/dev-destination-automation.git"
+aap_eda_project_url: "https://github.com/dynatrace-wwse/workshop-destination-automation.git"
 aap_eda_scm_credential_name: "destination-automation-github"
 aap_eda_aap_credential_name: "destination-automation-aap"
 # Host URL used inside the EDA AAP credential — must be reachable from inside the DE container.

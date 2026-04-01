@@ -1,4 +1,4 @@
-this directory 'dev-destination-automation' is an automation and observability workshop for Dynatrace and Red Hat Ansible Automation Platform.
+this directory 'workshop-destination-automation' is an automation and observability workshop for Dynatrace and Red Hat Ansible Automation Platform.
 
 This is a git repository.  Do not commit any changes.  If a commit is required, prompt the user and they will commit and sync the changes.
 
@@ -8,11 +8,11 @@ Anything related to observing with Dynatrace will be in the dynatrace directory.
 
 Ansible:
 
-Reminder to self: after making any change under ~/apps/dev-destination-automation/ansible/*, immediately sync those updates to /opt/ansible/aap/controller/projects/destination-automation/ before reporting completion.
+Reminder to self: after making any change under ~/apps/workshop-destination-automation/ansible/*, immediately sync those updates to /opt/ansible/aap/controller/projects/destination-automation/ before reporting completion.
 
-after making any changes under ~/apps/dev-destination-automation/*, immediately sync those updates to /home/aap-service-account/destination-automation/ before reporting completion.
+after making any changes under ~/apps/workshop-destination-automation/*, immediately sync those updates to /home/aap-service-account/destination-automation/ before reporting completion.
 
-All ansible roles should reference host variable destination_automation_base_dir for pathing.  For this instance, the variable is set to /home/aap-service-account/dev-destination-automation
+All ansible roles should reference host variable destination_automation_base_dir for pathing.  For this instance, the variable is set to /home/aap-service-account/workshop-destination-automation
 
 Dynatrace:
 

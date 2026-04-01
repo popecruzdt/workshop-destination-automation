@@ -52,7 +52,7 @@ The app image copies `.env.example` into the image as `.env`, but the compose fi
 ## Step 1: Move Into The App Directory
 
 ```bash
-cd /home/ec2-user/apps/dev-destination-automation/app
+cd /home/ec2-user/workshop-destination-automation/app
 ```
 
 ## Step 2: Build The Application Image

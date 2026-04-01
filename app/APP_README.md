@@ -186,7 +186,7 @@ The embedding override is implemented with an in-process OpenFeature provider in
 Use this when developing the app directly on the host:
 
 ```bash
-cd /home/ec2-user/apps/dev-destination-automation/app
+cd /home/ec2-user/workshop-destination-automation/app
 python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

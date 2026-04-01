@@ -1,4 +1,4 @@
-# dev-destination-automation
+# workshop-destination-automation
 
 Workshop lab demonstrating **Dynatrace** observability + **Red Hat Ansible Automation Platform** automation on a containerized **AI workload** running with **Podman**.
 

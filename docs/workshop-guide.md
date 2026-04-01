@@ -64,8 +64,8 @@ This workshop demonstrates a production-style workflow using:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/popecruzdt/dev-destination-automation.git
-cd dev-destination-automation
+git clone https://github.com/dynatrace-wwse/workshop-destination-automation.git
+cd workshop-destination-automation
 ```
 
 ### 2. Install Ansible collections
@@ -211,7 +211,7 @@ ansible-playbook playbooks/stop_app.yml -e "remove_image=true"
 ## Project Structure
 
 ```
-dev-destination-automation/
+workshop-destination-automation/
 ├── README.md                          # Project overview
 ├── app/                               # AI Inference API source code
 │   ├── Containerfile                  # Podman/Docker build definition
