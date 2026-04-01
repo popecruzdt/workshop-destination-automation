@@ -1,0 +1,24 @@
+---
+# =============================================================
+# Configure AI Runtime Controls
+#
+# Updates deployed app AI behavior by:
+#   - setting AI model and temperature
+#   - updating deploy inventory travel_advisor_env values
+#   - updating prompts/rag_instructions.txt
+#   - validating file state only
+#
+# Usage:
+#   ansible-playbook automate/playbooks/configure_app_ai_runtime.yml \
+#     -e "target_hosts=workshop" \
+#     -e "app_ai_model_requested=qwen2.5:0.5b-instruct-q4_K_M" \
+#     -e "app_ai_temperature_requested=0.2" \
+#     -e $'app_ai_rag_instructions_content=Line 1\\nLine 2'
+# =============================================================
+
+- name: "Workshop | Configure AI Runtime"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: app_ai_runtime_config

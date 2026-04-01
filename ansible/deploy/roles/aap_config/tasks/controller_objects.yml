@@ -1,0 +1,1609 @@
+---
+- name: "aap_config | Create destination-automation organization"
+  awx.awx.organization:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_org_name }}"
+    description: "{{ aap_org_description }}"
+    galaxy_credentials:
+      - "{{ aap_galaxy_credential_name }}"
+    state: present
+
+- name: "aap_config | Query existing aap-service-account credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_machine_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_machine_credential_query
+  changed_when: false
+
+- name: "aap_config | Record aap-service-account credential presence"
+  ansible.builtin.set_fact:
+    aap_machine_credential_exists: "{{ (aap_machine_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Machine credential for aap-service-account"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_machine_credential_name }}"
+    description: "{{ aap_machine_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "Machine"
+    update_secrets: "{{ aap_machine_credential_overwrite }}"
+    inputs: >-
+      {{
+        {
+          'username': aap_machine_credential_username,
+          'ssh_key_data': aap_machine_credential_ssh_key,
+          'ssh_key_unlock': aap_machine_credential_ssh_key_unlock
+        }
+        if aap_machine_credential_overwrite
+        else (
+          {
+            'username': aap_machine_credential_username
+          }
+          if not aap_machine_credential_exists
+          else omit
+        )
+      }}
+
+    state: present
+
+- name: "aap_config | Create Dynatrace Monaco custom credential type"
+  awx.awx.credential_type:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_monaco_credential_type_name }}"
+    description: "{{ aap_dynatrace_monaco_credential_type_description }}"
+    kind: "{{ aap_dynatrace_monaco_credential_type_kind }}"
+    inputs: "{{ aap_dynatrace_monaco_credential_type_inputs }}"
+    injectors: "{{ aap_dynatrace_monaco_credential_type_injectors }}"
+    state: present
+
+- name: "aap_config | Query existing Dynatrace Monaco credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_dynatrace_monaco_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_dynatrace_monaco_credential_query
+  changed_when: false
+
+- name: "aap_config | Record Dynatrace Monaco credential presence"
+  ansible.builtin.set_fact:
+    aap_dynatrace_monaco_credential_exists: "{{ (aap_dynatrace_monaco_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Dynatrace Monaco credential object"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_monaco_credential_name }}"
+    description: "{{ aap_dynatrace_monaco_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "{{ aap_dynatrace_monaco_credential_type_name }}"
+    update_secrets: "{{ aap_dynatrace_monaco_credential_overwrite }}"
+    # Only seed placeholder values on first creation; preserve any user-edited credential in AAP.
+    inputs: >-
+      {{
+        {
+          'dt_platform_url': aap_dynatrace_monaco_platform_url,
+          'dt_platform_token': aap_dynatrace_monaco_platform_token
+        }
+        if aap_dynatrace_monaco_credential_overwrite
+        else (
+          {
+            'dt_platform_url': aap_dynatrace_monaco_platform_url,
+            'dt_platform_token': aap_dynatrace_monaco_platform_token
+          }
+          if not aap_dynatrace_monaco_credential_exists
+          else omit
+        )
+      }}
+    state: present
+
+- name: "aap_config | Create Dynatrace OTLP custom credential type"
+  awx.awx.credential_type:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_otlp_credential_type_name }}"
+    description: "{{ aap_dynatrace_otlp_credential_type_description }}"
+    kind: "{{ aap_dynatrace_otlp_credential_type_kind }}"
+    inputs: "{{ aap_dynatrace_otlp_credential_type_inputs }}"
+    injectors: "{{ aap_dynatrace_otlp_credential_type_injectors }}"
+    state: present
+  ignore_errors: true
+
+- name: "aap_config | Query existing Dynatrace OTLP credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_dynatrace_otlp_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_dynatrace_otlp_credential_query
+  changed_when: false
+
+- name: "aap_config | Record Dynatrace OTLP credential presence"
+  ansible.builtin.set_fact:
+    aap_dynatrace_otlp_credential_exists: "{{ (aap_dynatrace_otlp_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Dynatrace OTLP credential object"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_otlp_credential_name }}"
+    description: "{{ aap_dynatrace_otlp_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "{{ aap_dynatrace_otlp_credential_type_name }}"
+    update_secrets: "{{ aap_dynatrace_otlp_credential_overwrite }}"
+    # Only seed placeholder values on first creation; preserve any user-edited credential in AAP.
+    inputs: >-
+      {{
+        {
+          'dt_otlp_endpoint': aap_dynatrace_otlp_endpoint,
+          'dt_otlp_token': aap_dynatrace_otlp_token
+        }
+        if aap_dynatrace_otlp_credential_overwrite
+        else (
+          {
+            'dt_otlp_endpoint': aap_dynatrace_otlp_endpoint,
+            'dt_otlp_token': aap_dynatrace_otlp_token
+          }
+          if not aap_dynatrace_otlp_credential_exists
+          else omit
+        )
+      }}
+    state: present
+
+- name: "aap_config | Create Dynatrace OAuth Client custom credential type"
+  awx.awx.credential_type:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_oauth_credential_type_name }}"
+    description: "{{ aap_dynatrace_oauth_credential_type_description }}"
+    kind: "{{ aap_dynatrace_oauth_credential_type_kind }}"
+    inputs: "{{ aap_dynatrace_oauth_credential_type_inputs }}"
+    injectors: "{{ aap_dynatrace_oauth_credential_type_injectors }}"
+    state: present
+  ignore_errors: true
+
+- name: "aap_config | Query existing Dynatrace OAuth Client credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_dynatrace_oauth_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_dynatrace_oauth_credential_query
+  changed_when: false
+
+- name: "aap_config | Record Dynatrace OAuth Client credential presence"
+  ansible.builtin.set_fact:
+    aap_dynatrace_oauth_credential_exists: "{{ (aap_dynatrace_oauth_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Dynatrace OAuth Client credential object"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_oauth_credential_name }}"
+    description: "{{ aap_dynatrace_oauth_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "{{ aap_dynatrace_oauth_credential_type_name }}"
+    update_secrets: "{{ aap_dynatrace_oauth_credential_overwrite }}"
+    # Only seed placeholder values on first creation; preserve any user-edited credential in AAP.
+    inputs: >-
+      {{
+        {
+          'dt_oauth_client_id': aap_dynatrace_oauth_client_id,
+          'dt_oauth_client_secret': aap_dynatrace_oauth_client_secret,
+          'dt_oauth_account_urn': aap_dynatrace_oauth_account_urn
+        }
+        if aap_dynatrace_oauth_credential_overwrite
+        else (
+          {
+            'dt_oauth_client_id': aap_dynatrace_oauth_client_id,
+            'dt_oauth_client_secret': aap_dynatrace_oauth_client_secret,
+            'dt_oauth_account_urn': aap_dynatrace_oauth_account_urn
+          }
+          if not aap_dynatrace_oauth_credential_exists
+          else omit
+        )
+      }}
+    state: present
+
+- name: "aap_config | Create Dynatrace OneAgent PaaS custom credential type"
+  awx.awx.credential_type:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_oneagent_credential_type_name }}"
+    description: "{{ aap_dynatrace_oneagent_credential_type_description }}"
+    kind: "{{ aap_dynatrace_oneagent_credential_type_kind }}"
+    inputs: "{{ aap_dynatrace_oneagent_credential_type_inputs }}"
+    injectors: "{{ aap_dynatrace_oneagent_credential_type_injectors }}"
+    state: present
+
+- name: "aap_config | Query existing Dynatrace OneAgent credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_dynatrace_oneagent_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_dynatrace_oneagent_credential_query
+  changed_when: false
+
+- name: "aap_config | Record Dynatrace OneAgent credential presence"
+  ansible.builtin.set_fact:
+    aap_dynatrace_oneagent_credential_exists: "{{ (aap_dynatrace_oneagent_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Dynatrace OneAgent credential object"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_oneagent_credential_name }}"
+    description: "{{ aap_dynatrace_oneagent_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "{{ aap_dynatrace_oneagent_credential_type_name }}"
+    update_secrets: "{{ aap_dynatrace_oneagent_credential_overwrite }}"
+    # Only seed placeholder values on first creation; preserve any user-edited credential in AAP.
+    inputs: >-
+      {{
+        {
+          'oneagent_environment_url': aap_dynatrace_oneagent_environment_url,
+          'oneagent_paas_token': aap_dynatrace_oneagent_paas_token
+        }
+        if aap_dynatrace_oneagent_credential_overwrite
+        else (
+          {
+            'oneagent_environment_url': aap_dynatrace_oneagent_environment_url,
+            'oneagent_paas_token': aap_dynatrace_oneagent_paas_token
+          }
+          if not aap_dynatrace_oneagent_credential_exists
+          else omit
+        )
+      }}
+    state: present
+
+- name: "aap_config | Create custom execution environment"
+  awx.awx.execution_environment:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_custom_ee_name }}"
+    description: "{{ aap_custom_ee_description }}"
+    image: "{{ aap_custom_ee_image }}"
+    organization: "{{ aap_org_name }}"
+    state: present
+  register: aap_custom_ee_result
+
+- name: "aap_config | Display custom EE registration result"
+  ansible.builtin.debug:
+    msg: "Custom EE registered: {{ aap_custom_ee_result.id }}"
+  when: aap_custom_ee_result.id is defined
+
+- name: "aap_config | Create OneAgent execution environment"
+  awx.awx.execution_environment:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_oneagent_ee_name }}"
+    description: "{{ aap_oneagent_ee_description }}"
+    image: "{{ aap_oneagent_ee_image }}"
+    organization: "{{ aap_org_name }}"
+    state: present
+  register: aap_oneagent_ee_result
+
+- name: "aap_config | Display OneAgent EE registration result"
+  ansible.builtin.debug:
+    msg: "OneAgent EE registered: {{ aap_oneagent_ee_result.id }}"
+  when: aap_oneagent_ee_result.id is defined
+
+- name: "aap_config | Create local manual project"
+  awx.awx.project:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_project_name }}"
+    description: "{{ aap_project_description }}"
+    organization: "{{ aap_org_name }}"
+    scm_type: manual
+    local_path: "{{ aap_local_project_path_name }}"
+    state: present
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Create external git project"
+  awx.awx.project:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_project_name }}"
+    description: "{{ aap_project_description }}"
+    organization: "{{ aap_org_name }}"
+    scm_type: "{{ aap_external_project_scm_type }}"
+    scm_url: "{{ aap_external_project_scm_url }}"
+    scm_branch: "{{ aap_external_project_scm_branch }}"
+    credential: "{{ aap_external_project_scm_credential if (aap_external_project_scm_credential | length > 0) else omit }}"
+    update_project: true
+    state: present
+  when: aap_deploy_mode == 'external'
+
+- name: "aap_config | Create destination-automation inventory"
+  awx.awx.inventory:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_inventory_name }}"
+    organization: "{{ aap_org_name }}"
+    description: "{{ aap_inventory_description }}"
+    state: present
+
+- name: "aap_config | Add localhost to inventory for local mode"
+  awx.awx.host:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_local_inventory_host_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    description: "Local workshop target host"
+    variables: "{{ aap_local_inventory_host_vars }}"
+    state: present
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Remove legacy localhost host in local mode"
+  awx.awx.host:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "localhost"
+    inventory: "{{ aap_inventory_name }}"
+    state: absent
+  when:
+    - aap_deploy_mode == 'local'
+    - aap_local_inventory_host_name != 'localhost'
+
+- name: "aap_config | Add external hosts to inventory"
+  awx.awx.host:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ item.name }}"
+    inventory: "{{ aap_inventory_name }}"
+    description: "{{ item.description | default('External workshop target', true) }}"
+    variables: >-
+      {{
+        item.variables
+        if (item.variables is defined and item.variables is mapping)
+        else ((item.variables | default('{}', true)) | from_yaml)
+      }}
+    state: present
+  loop: "{{ aap_external_inventory_hosts }}"
+  when: aap_deploy_mode == 'external'
+
+- name: "aap_config | Create workshop group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_workshop_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    description: "{{ aap_workshop_group_description }}"
+    state: present
+
+- name: "aap_config | Add local host to workshop group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_workshop_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    hosts:
+      - "{{ aap_local_inventory_host_name }}"
+    state: present
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Add external hosts to workshop group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_workshop_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    hosts: "{{ aap_external_inventory_hosts | map(attribute='name') | list }}"
+    state: present
+  when:
+    - aap_deploy_mode == 'external'
+    - (aap_external_inventory_hosts | length > 0)
+
+- name: "aap_config | Create destination-automation group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_target_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    description: "Dynatrace OneAgent deployment targets"
+    state: present
+
+- name: "aap_config | Add local host to destination-automation group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_target_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    hosts:
+      - "{{ aap_local_inventory_host_name }}"
+    state: present
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Add external hosts to destination-automation group"
+  awx.awx.group:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_dynatrace_target_group_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    hosts: "{{ aap_external_inventory_hosts | map(attribute='name') | list }}"
+    state: present
+  when:
+    - aap_deploy_mode == 'external'
+    - (aap_external_inventory_hosts | length > 0)
+
+- name: "aap_config | Create healthcheck domain label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_healthcheck_domain_label }}"
+    state: present
+
+- name: "aap_config | Create readiness label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_readiness_label }}"
+    state: present
+
+- name: "aap_config | Create app label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_app_label }}"
+    state: present
+
+- name: "aap_config | Create deploy label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_deploy_label }}"
+    state: present
+
+- name: "aap_config | Create dynatrace label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_dynatrace_label }}"
+    state: present
+
+- name: "aap_config | Create automate label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_automate_label }}"
+    state: present
+
+- name: "aap_config | Create clean label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_clean_label }}"
+    state: present
+
+- name: "aap_config | Create podman label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_podman_label }}"
+    state: present
+
+- name: "aap_config | Create operate label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_operate_label }}"
+    state: present
+
+- name: "aap_config | Create remediate label"
+  awx.awx.label:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    organization: "{{ aap_org_name }}"
+    name: "{{ aap_remediate_label }}"
+    state: present
+
+- name: "aap_config | Create node readiness test job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_test_job_template_name }}"
+    description: "{{ aap_test_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_test_job_template_playbook }}"
+    credential: "{{ aap_test_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_test_job_template_labels }}"
+    become_enabled: "{{ aap_test_job_template_become_enabled }}"
+    limit: "{{ aap_test_job_template_limit if (aap_test_job_template_limit | length > 0) else omit }}"
+    state: present
+
+- name: "aap_config | Create build images job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_build_images_job_template_name }}"
+    description: "{{ aap_build_images_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_build_images_job_template_playbook }}"
+    credential: "{{ aap_build_images_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_build_images_job_template_extra_vars }}"
+    become_enabled: "{{ aap_build_images_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_app_job_template_name }}"
+    description: "{{ aap_deploy_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_app_job_template_playbook }}"
+    credentials: "{{ aap_deploy_app_job_template_credentials }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create clean remove-app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_clean_remove_app_job_template_name }}"
+    description: "{{ aap_clean_remove_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_clean_remove_app_job_template_playbook }}"
+    credential: "{{ aap_clean_remove_app_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_clean_job_template_labels }}"
+    extra_vars: "{{ aap_clean_remove_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_clean_remove_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create clean remove-image job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_clean_remove_image_job_template_name }}"
+    description: "{{ aap_clean_remove_image_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_clean_remove_image_job_template_playbook }}"
+    credential: "{{ aap_clean_remove_image_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_clean_job_template_labels }}"
+    extra_vars: "{{ aap_clean_remove_image_job_template_extra_vars }}"
+    become_enabled: "{{ aap_clean_remove_image_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy Dynatrace OneAgent job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_dynatrace_oneagent_job_template_name }}"
+    description: "{{ aap_deploy_dynatrace_oneagent_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_dynatrace_oneagent_job_template_playbook }}"
+    credentials: "{{ aap_deploy_dynatrace_oneagent_job_template_credentials }}"
+    execution_environment: "{{ aap_oneagent_ee_name }}"
+    labels: "{{ aap_dynatrace_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_dynatrace_oneagent_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_dynatrace_oneagent_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy Dynatrace Monaco job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_dynatrace_monaco_job_template_name }}"
+    description: "{{ aap_deploy_dynatrace_monaco_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_dynatrace_monaco_job_template_playbook }}"
+    credentials: "{{ aap_deploy_dynatrace_monaco_job_template_credentials }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_dynatrace_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_dynatrace_monaco_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_dynatrace_monaco_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy Dynatrace Apps job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_dynatrace_apps_job_template_name }}"
+    description: "{{ aap_deploy_dynatrace_apps_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_dynatrace_apps_job_template_playbook }}"
+    credentials: "{{ aap_deploy_dynatrace_apps_job_template_credentials }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_dynatrace_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_dynatrace_apps_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_dynatrace_apps_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy Dynatrace API config job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_dynatrace_api_config_job_template_name }}"
+    description: "{{ aap_deploy_dynatrace_api_config_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_dynatrace_api_config_job_template_playbook }}"
+    credentials: "{{ aap_deploy_dynatrace_api_config_job_template_credentials }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_dynatrace_deploy_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_dynatrace_api_config_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_dynatrace_api_config_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create deploy Dynatrace EdgeConnect job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_deploy_dynatrace_edgeconnect_job_template_name }}"
+    description: "{{ aap_deploy_dynatrace_edgeconnect_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_deploy_dynatrace_edgeconnect_job_template_playbook }}"
+    credentials: "{{ aap_deploy_dynatrace_edgeconnect_job_template_credentials }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_deploy_dynatrace_edgeconnect_job_template_labels }}"
+    extra_vars: "{{ aap_deploy_dynatrace_edgeconnect_job_template_extra_vars }}"
+    become_enabled: "{{ aap_deploy_dynatrace_edgeconnect_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create operate start-app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_operate_start_app_job_template_name }}"
+    description: "{{ aap_operate_start_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_operate_start_app_job_template_playbook }}"
+    credential: "{{ aap_operate_start_app_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_operate_job_template_labels }}"
+    extra_vars: "{{ aap_operate_start_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_operate_start_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create operate stop-app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_operate_stop_app_job_template_name }}"
+    description: "{{ aap_operate_stop_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_operate_stop_app_job_template_playbook }}"
+    credential: "{{ aap_operate_stop_app_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_operate_job_template_labels }}"
+    extra_vars: "{{ aap_operate_stop_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_operate_stop_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create operate restart-app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_operate_restart_app_job_template_name }}"
+    description: "{{ aap_operate_restart_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_operate_restart_app_job_template_playbook }}"
+    credential: "{{ aap_operate_restart_app_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_operate_job_template_labels }}"
+    extra_vars: "{{ aap_operate_restart_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_operate_restart_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create operate recycle-app job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_operate_recycle_app_job_template_name }}"
+    description: "{{ aap_operate_recycle_app_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_operate_recycle_app_job_template_playbook }}"
+    credential: "{{ aap_operate_recycle_app_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_operate_job_template_labels }}"
+    extra_vars: "{{ aap_operate_recycle_app_job_template_extra_vars }}"
+    become_enabled: "{{ aap_operate_recycle_app_job_template_become_enabled }}"
+    state: present
+
+- name: "aap_config | Create automate app AI runtime job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_runtime_job_template_name }}"
+    description: "{{ aap_automate_app_ai_runtime_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_runtime_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_runtime_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_runtime_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_runtime_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_runtime_jt
+
+- name: "aap_config | Set automate app AI runtime job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_runtime_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_runtime_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create automate app AI model job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_model_job_template_name }}"
+    description: "{{ aap_automate_app_ai_model_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_model_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_model_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_model_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_model_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_model_jt
+
+- name: "aap_config | Set automate app AI model job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_model_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_model_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create automate app AI temperature job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_temperature_job_template_name }}"
+    description: "{{ aap_automate_app_ai_temperature_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_temperature_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_temperature_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_temperature_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_temperature_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_temperature_jt
+
+- name: "aap_config | Set automate app AI temperature job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_temperature_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_temperature_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create automate app AI rag instructions job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_rag_job_template_name }}"
+    description: "{{ aap_automate_app_ai_rag_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_rag_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_rag_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_rag_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_rag_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_rag_jt
+
+- name: "aap_config | Set automate app AI rag instructions job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_rag_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_rag_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create automate app AI destinations job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_destinations_job_template_name }}"
+    description: "{{ aap_automate_app_ai_destinations_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_destinations_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_destinations_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_destinations_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_destinations_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_destinations_jt
+
+- name: "aap_config | Set automate app AI destinations job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_destinations_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_destinations_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create automate app AI embedding job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_automate_app_ai_embedding_job_template_name }}"
+    description: "{{ aap_automate_app_ai_embedding_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_automate_app_ai_embedding_job_template_playbook }}"
+    credential: "{{ aap_automate_app_ai_embedding_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_automate_openfeature_job_template_labels }}"
+    become_enabled: "{{ aap_automate_app_ai_embedding_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_automate_app_ai_embedding_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_embedding_automate_jt
+
+- name: "aap_config | Set automate app AI embedding job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_embedding_automate_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_automate_app_ai_embedding_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create remediate app AI embedding job template"
+  awx.awx.job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_remediate_app_ai_embedding_job_template_name }}"
+    description: "{{ aap_remediate_app_ai_embedding_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    project: "{{ aap_project_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    playbook: "{{ aap_remediate_app_ai_embedding_job_template_playbook }}"
+    credential: "{{ aap_remediate_app_ai_embedding_job_template_credential }}"
+    execution_environment: "{{ aap_custom_ee_name }}"
+    labels: "{{ aap_app_remediate_job_template_labels }}"
+    become_enabled: "{{ aap_remediate_app_ai_embedding_job_template_become_enabled }}"
+    ask_variables_on_launch: "{{ aap_remediate_app_ai_embedding_job_template_ask_variables_on_launch }}"
+    state: present
+  register: _aap_ai_embedding_remediate_jt
+
+- name: "aap_config | Set remediate app AI embedding job template extra_vars with comments"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/job_templates/{{ _aap_ai_embedding_remediate_jt.id }}/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      extra_vars: "{{ aap_remediate_app_ai_embedding_job_template_extra_vars_yaml }}"
+    status_code: 200
+
+- name: "aap_config | Create workflow app AI runtime job template"
+  awx.awx.workflow_job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_workflow_app_ai_runtime_job_template_name }}"
+    description: "{{ aap_workflow_app_ai_runtime_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    labels: "{{ aap_workflow_app_ai_runtime_job_template_labels }}"
+    ask_variables_on_launch: "{{ aap_workflow_app_ai_runtime_job_template_ask_variables_on_launch }}"
+    allow_simultaneous: "{{ aap_workflow_app_ai_runtime_job_template_allow_simultaneous }}"
+    workflow_nodes:
+      - identifier: "{{ aap_workflow_app_ai_runtime_automate_node_identifier }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_automate_app_ai_runtime_job_template_name }}"
+          type: job_template
+        extra_data: "{{ aap_workflow_app_ai_runtime_automate_node_extra_data }}"
+        related:
+          success_nodes:
+            - identifier: "{{ aap_workflow_app_ai_runtime_recycle_node_identifier }}"
+          failure_nodes: []
+          always_nodes: []
+      - identifier: "{{ aap_workflow_app_ai_runtime_recycle_node_identifier }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_operate_recycle_app_job_template_name }}"
+          type: job_template
+        related:
+          success_nodes: []
+          failure_nodes: []
+          always_nodes: []
+    state: present
+
+- name: "aap_config | Set workflow app AI runtime job template extra_vars with comments"
+  block:
+    - name: "aap_config | Query workflow app AI runtime job template by name"
+      ansible.builtin.uri:
+        url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/workflow_job_templates/?name={{ aap_workflow_app_ai_runtime_job_template_name | urlencode }}"
+        method: GET
+        user: "{{ aap_controller_username }}"
+        password: "{{ aap_controller_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_controller_validate_certs }}"
+        status_code: 200
+      register: _aap_workflow_ai_runtime_wjt_query
+
+    - name: "aap_config | Patch workflow job template extra_vars with comments"
+      ansible.builtin.uri:
+        url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/workflow_job_templates/{{ _aap_workflow_ai_runtime_wjt_query.json.results[0].id }}/"
+        method: PATCH
+        user: "{{ aap_controller_username }}"
+        password: "{{ aap_controller_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_controller_validate_certs }}"
+        body_format: json
+        body:
+          extra_vars: "{{ aap_workflow_app_ai_runtime_job_template_extra_vars_yaml }}"
+        status_code: 200
+      when: _aap_workflow_ai_runtime_wjt_query.json.results | length > 0
+
+- name: "aap_config | Create workflow deploy app clean job template"
+  awx.awx.workflow_job_template:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_workflow_deploy_app_clean_job_template_name }}"
+    description: "{{ aap_workflow_deploy_app_clean_job_template_description }}"
+    organization: "{{ aap_org_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    labels: "{{ aap_workflow_deploy_app_clean_job_template_labels }}"
+    ask_variables_on_launch: "{{ aap_workflow_deploy_app_clean_job_template_ask_variables_on_launch }}"
+    allow_simultaneous: "{{ aap_workflow_deploy_app_clean_job_template_allow_simultaneous }}"
+    workflow_nodes:
+      - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_clean_remove_app }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_clean_remove_app_job_template_name }}"
+          type: job_template
+        related:
+          success_nodes:
+            - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_clean_remove_image }}"
+          failure_nodes: []
+          always_nodes: []
+      - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_clean_remove_image }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_clean_remove_image_job_template_name }}"
+          type: job_template
+        related:
+          success_nodes:
+            - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_build_images }}"
+          failure_nodes: []
+          always_nodes: []
+      - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_build_images }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_build_images_job_template_name }}"
+          type: job_template
+        related:
+          success_nodes:
+            - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_deploy_app }}"
+          failure_nodes: []
+          always_nodes: []
+      - identifier: "{{ aap_workflow_deploy_app_clean_node_identifier_deploy_app }}"
+        unified_job_template:
+          organization:
+            name: "{{ aap_org_name }}"
+          name: "{{ aap_deploy_app_job_template_name }}"
+          type: job_template
+        related:
+          success_nodes: []
+          failure_nodes: []
+          always_nodes: []
+    state: present
+
+- name: "aap_config | Grant organization admin to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    organization: "{{ aap_org_name }}"
+    role: admin
+    state: present
+
+- name: "aap_config | Create instructors team"
+  awx.awx.team:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_instructors_team_name }}"
+    description: "Instructors team for destination automation workshop"
+    organization: "{{ aap_org_name }}"
+    state: present
+
+- name: "aap_config | Create participants team"
+  awx.awx.team:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_participants_team_name }}"
+    description: "Participants team for destination automation workshop"
+    organization: "{{ aap_org_name }}"
+    state: present
+
+- name: "aap_config | Add instructor to instructors team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    target_team: "{{ aap_instructors_team_name }}"
+    role: member
+    state: present
+
+- name: "aap_config | Add participant users to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ item }}"
+    target_team: "{{ aap_participants_team_name }}"
+    role: member
+    state: present
+  loop: "{{ aap_participant_usernames }}"
+
+- name: "aap_config | Grant organization auditor to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    organization: "{{ aap_org_name }}"
+    role: auditor
+    state: present
+
+- name: "aap_config | Grant project admin to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    project: "{{ aap_project_name }}"
+    role: admin
+    state: present
+
+- name: "aap_config | Grant inventory admin to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    inventory: "{{ aap_inventory_name }}"
+    role: admin
+    state: present
+
+- name: "aap_config | Grant project read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    project: "{{ aap_project_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_test_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant build-images job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_build_images_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant deploy-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_deploy_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant dynatrace oneagent job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_deploy_dynatrace_oneagent_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant dynatrace monaco job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_deploy_dynatrace_monaco_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant clean remove-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_clean_remove_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant clean remove-image job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_clean_remove_image_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant operate start-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_operate_start_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant operate stop-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_operate_stop_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant operate restart-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_operate_restart_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant operate recycle-app job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_operate_recycle_app_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI runtime job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_runtime_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI model job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_model_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI temperature job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_temperature_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI rag instructions job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_rag_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI destinations job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_destinations_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant automate app AI embedding job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_automate_app_ai_embedding_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant remediate app AI embedding job template read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    job_template: "{{ aap_remediate_app_ai_embedding_job_template_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant inventory read to participants team"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    team: "{{ aap_participants_team_name }}"
+    inventory: "{{ aap_inventory_name }}"
+    role: read
+    state: present
+
+- name: "aap_config | Grant credential use to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    credential: "{{ aap_machine_credential_name }}"
+    role: use
+    state: present
+
+- name: "aap_config | Grant Dynatrace Monaco credential use to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    credential: "{{ aap_dynatrace_monaco_credential_name }}"
+    role: use
+    state: present
+
+- name: "aap_config | Grant Dynatrace OneAgent credential use to instructor"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_instructor_username }}"
+    credential: "{{ aap_dynatrace_oneagent_credential_name }}"
+    role: use
+    state: present
+
+- name: "aap_config | Grant organization member role to EDA service account"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_eda_service_account_username }}"
+    organization: "{{ aap_org_name }}"
+    role: member
+    state: present
+
+- name: "aap_config | Grant execute role on all job templates to EDA service account"
+  awx.awx.role:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    user: "{{ aap_eda_service_account_username }}"
+    job_template: "{{ item }}"
+    role: execute
+    state: present
+  loop:
+    - "{{ aap_test_job_template_name }}"
+    - "{{ aap_build_images_job_template_name }}"
+    - "{{ aap_deploy_app_job_template_name }}"
+    - "{{ aap_clean_remove_app_job_template_name }}"
+    - "{{ aap_clean_remove_image_job_template_name }}"
+    - "{{ aap_deploy_dynatrace_oneagent_job_template_name }}"
+    - "{{ aap_deploy_dynatrace_monaco_job_template_name }}"
+    - "{{ aap_operate_start_app_job_template_name }}"
+    - "{{ aap_operate_stop_app_job_template_name }}"
+    - "{{ aap_operate_restart_app_job_template_name }}"
+    - "{{ aap_operate_recycle_app_job_template_name }}"
+    - "{{ aap_automate_app_ai_runtime_job_template_name }}"
+    - "{{ aap_automate_app_ai_model_job_template_name }}"
+    - "{{ aap_automate_app_ai_temperature_job_template_name }}"
+    - "{{ aap_automate_app_ai_rag_job_template_name }}"
+    - "{{ aap_automate_app_ai_destinations_job_template_name }}"
+    - "{{ aap_automate_app_ai_embedding_job_template_name }}"
+    - "{{ aap_remediate_app_ai_embedding_job_template_name }}"
+    - "{{ aap_deploy_dynatrace_apps_job_template_name }}"
+    - "{{ aap_deploy_dynatrace_api_config_job_template_name }}"
+    - "{{ aap_deploy_dynatrace_edgeconnect_job_template_name }}"

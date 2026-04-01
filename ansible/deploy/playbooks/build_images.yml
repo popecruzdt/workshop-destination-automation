@@ -1,0 +1,68 @@
+---
+# =============================================================
+# Build Images Playbook
+# Builds the easyTravel application container image using 
+# Podman collection modules (Red Hat Ansible Automation 
+# Platform certified approach).
+#
+# Usage:
+#   ansible-playbook deploy/playbooks/build_images.yml
+#   ansible-playbook deploy/playbooks/build_images.yml -e "image_tag=2.0.0"
+# =============================================================
+
+- name: "Workshop | Build easyTravel Container Image"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../inventories/localhost/group_vars/all.yml"
+
+  vars:
+    build_no_cache: false
+    build_pull: true
+
+  tasks:
+    - name: "Resolve app source path"
+      ansible.builtin.set_fact:
+        app_src_path_resolved: >-
+          {{
+            app_src_path
+            if (app_src_path | regex_search('^/'))
+            else (playbook_dir ~ '/' ~ app_src_path)
+          }}
+
+    - name: "Display build configuration"
+      ansible.builtin.debug:
+        msg:
+          - "Application:    {{ app_name }} v{{ app_version }}"
+          - "Image:          {{ image_full }}"
+          - "Containerfile:  {{ containerfile_path }}"
+          - "Context:        {{ app_src_path_resolved }}"
+          - "No cache:       {{ build_no_cache }}"
+
+    - name: "Ensure app source directory exists"
+      ansible.builtin.stat:
+        path: "{{ app_src_path_resolved }}"
+      register: app_src_stat
+
+    - name: "Fail if app source directory is missing"
+      ansible.builtin.fail:
+        msg: "App source directory not found: {{ app_src_path_resolved }}"
+      when: not app_src_stat.stat.exists
+
+    - name: "Build container image with Podman collection module"
+      ansible.builtin.include_role:
+        name: podman_build
+
+    - name: "Verify image was built successfully"
+      containers.podman.podman_image:
+        name: "{{ image_full }}"
+        state: present
+      changed_when: false
+
+    - name: "Display build success"
+      ansible.builtin.debug:
+        msg:
+          - "✓ Container image built successfully"
+          - "✓ Image: {{ image_full }}"
+          - "✓ Ready for deployment"

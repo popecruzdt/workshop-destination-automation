@@ -1,0 +1,93 @@
+---
+# Core behavior
+aap_install_enabled: true
+aap_run_installer: true
+aap_manage_firewall: "{{ (lookup('ansible.builtin.env', 'AAP_MANAGE_FIREWALL') | default('false', true)) | bool }}"
+aap_firewall_zone: public
+
+# Host identity
+aap_force_set_hostname: "{{ (lookup('ansible.builtin.env', 'AAP_FORCE_SET_HOSTNAME') | default('false', true)) | bool }}"
+aap_fqdn: "{{ lookup('ansible.builtin.env', 'AAP_FQDN') | default('', true) }}"
+aap_public_hostname: "{{ lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('', true) }}"
+aap_private_hostname: "{{ lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(ansible_fqdn, true) }}"
+
+# Install user model
+aap_install_user: >-
+  {{
+    lookup('ansible.builtin.env', 'AAP_INSTALL_USER')
+    | default(lookup('ansible.builtin.env', 'SUDO_USER'), true)
+    | default(lookup('ansible.builtin.env', 'USER'), true)
+    | default(ansible_user_id, true)
+  }}
+
+# Subscription registration (optional)
+aap_register_with_rhsm: "{{ (lookup('ansible.builtin.env', 'AAP_REGISTER_RHSM') | default('false', true)) | bool }}"
+aap_rhsm_username: "{{ lookup('ansible.builtin.env', 'RHSM_USERNAME') | default('', true) }}"
+aap_rhsm_password: "{{ lookup('ansible.builtin.env', 'RHSM_PASSWORD') | default('', true) }}"
+aap_rhsm_activationkey: "{{ lookup('ansible.builtin.env', 'RHSM_ACTIVATION_KEY') | default('', true) }}"
+aap_rhsm_org_id: "{{ lookup('ansible.builtin.env', 'RHSM_ORG_ID') | default('', true) }}"
+
+# RHEL package and repository prep
+aap_required_packages:
+  - ansible-core
+  - podman
+  - tar
+  - gzip
+aap_troubleshooting_packages:
+  - wget
+  - git-core
+  - rsync
+  - vim
+
+# Firewall defaults for workshop access
+aap_firewall_ports:
+  - 80/tcp
+  - 443/tcp
+
+# Installer source
+# Provide one of:
+# - AAP_INSTALLER_URL (online/bundle installer tar.gz URL)
+# - AAP_INSTALLER_LOCAL_PATH (path on target host, ex: /home/ec2-user/redhat/aap.tar.gz)
+aap_installer_url: "{{ lookup('ansible.builtin.env', 'AAP_INSTALLER_URL') | default('', true) }}"
+aap_installer_local_path: "{{ lookup('ansible.builtin.env', 'AAP_INSTALLER_LOCAL_PATH') | default('', true) }}"
+aap_install_dir: "{{ lookup('ansible.builtin.env', 'AAP_INSTALL_DIR') | default('/opt/ansible', true) }}"
+aap_installer_archive_name: "{{ lookup('ansible.builtin.env', 'AAP_INSTALLER_ARCHIVE_NAME') | default('ansible-automation-platform-containerized-setup-bundle.tar.gz', true) }}"
+aap_installer_extracted_dir_override: "{{ lookup('ansible.builtin.env', 'AAP_INSTALLER_EXTRACTED_DIR') | default('', true) }}"
+
+# Inventory output
+aap_inventory_output_path: "{{ lookup('ansible.builtin.env', 'AAP_INVENTORY_OUTPUT_PATH') | default('/opt/ansible/inventory-workshop', true) }}"
+aap_bundle_install: "{{ (lookup('ansible.builtin.env', 'AAP_BUNDLE_INSTALL') | default('true', true)) | bool }}"
+aap_bundle_dir_override: "{{ lookup('ansible.builtin.env', 'AAP_BUNDLE_DIR') | default('', true) }}"
+
+# Credentials and passwords (workshop defaults can be overridden)
+aap_admin_password: "{{ lookup('ansible.builtin.env', 'AAP_ADMIN_PASSWORD') | default('', true) }}"
+aap_postgresql_admin_username: "{{ lookup('ansible.builtin.env', 'AAP_POSTGRES_ADMIN_USERNAME') | default('postgres', true) }}"
+aap_postgresql_admin_password: "{{ lookup('ansible.builtin.env', 'AAP_POSTGRES_ADMIN_PASSWORD') | default(aap_admin_password, true) }}"
+
+# Runtime data paths
+aap_base_dir: "{{ lookup('ansible.builtin.env', 'AAP_BASE_DIR') | default('/opt/ansible/aap', true) }}"
+aap_postgres_data_dir: "{{ lookup('ansible.builtin.env', 'AAP_POSTGRES_DATA_DIR') | default(aap_base_dir + '/postgresql', true) }}"
+aap_controller_data_dir: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_DATA_DIR') | default(aap_base_dir + '/controller', true) }}"
+aap_hub_data_dir: "{{ lookup('ansible.builtin.env', 'AAP_HUB_DATA_DIR') | default(aap_base_dir + '/automationhub', true) }}"
+aap_redis_data_dir: "{{ lookup('ansible.builtin.env', 'AAP_REDIS_DATA_DIR') | default(aap_base_dir + '/redis', true) }}"
+
+# Rootless podman runtime data location used during installer execution.
+# Default keeps XDG data under /opt/ansible/aap so assets do not land in /home/<user>/.
+aap_xdg_data_home: "{{ lookup('ansible.builtin.env', 'AAP_XDG_DATA_HOME') | default(aap_base_dir + '/xdg', true) }}"
+aap_installer_log_path: "{{ lookup('ansible.builtin.env', 'AAP_INSTALLER_LOG_PATH') | default('', true) }}"
+aap_installer_monitor_delay: "{{ (lookup('ansible.builtin.env', 'AAP_INSTALLER_MONITOR_DELAY') | default('15', true)) | int }}"
+aap_installer_monitor_retries: "{{ (lookup('ansible.builtin.env', 'AAP_INSTALLER_MONITOR_RETRIES') | default('240', true)) | int }}"
+aap_installer_log_tail_lines: "{{ (lookup('ansible.builtin.env', 'AAP_INSTALLER_LOG_TAIL_LINES') | default('25', true)) | int }}"
+aap_hub_seed_log_path: "{{ lookup('ansible.builtin.env', 'AAP_HUB_SEED_LOG_PATH') | default('', true) }}"
+
+# Automation Hub behavior
+# Keep hub installed but disable all collection seeding by default.
+aap_hub_seed: "{{ (lookup('ansible.builtin.env', 'AAP_HUB_SEED') | default('false', true)) | bool }}"
+aap_hub_seed_collections: "{{ lookup('ansible.builtin.env', 'AAP_HUB_SEED_COLLECTIONS') | default('', true) }}"
+
+# Internal database host mapping for all-in-one
+aap_db_host: "{{ lookup('ansible.builtin.env', 'AAP_DB_HOST') | default(aap_private_hostname, true) }}"
+aap_redis_mode: "{{ lookup('ansible.builtin.env', 'AAP_REDIS_MODE') | default('standalone', true) }}"
+
+# Resource guardrails
+aap_min_install_dir_mb: 15360

@@ -1,0 +1,34 @@
+# AI Travel Advisor - Containerfile (Podman-first)
+# Build: podman build -f Containerfile -t localhost/ai-travel-advisor:latest .
+# Run:   podman run -p 18080:8080 -v ./destinations:/app/destinations:ro,Z localhost/ai-travel-advisor:latest
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system deps required by python packages and runtime health checks.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY public/ ./public/
+COPY prompts/ ./prompts/
+COPY .env.example .env
+
+RUN mkdir -p /app/destinations
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE 8080
+
+CMD ["python", "-m", "src.main"]

@@ -1,0 +1,25 @@
+---
+# podman_clean role - defaults
+
+# Action selector:
+# - remove_app: stop/remove containers and network
+# - remove_image: remove built application image
+podman_clean_action: "remove_app"
+
+# Remove named podman volumes created by deploy role (destructive)
+podman_clean_remove_volumes: true
+
+# Stack resources
+podman_clean_containers:
+  - "{{ travel_advisor_name }}"
+  - "{{ weaviate_name }}"
+  - "{{ ollama_name }}"
+  - "{{ otel_collector_name }}"
+  - "{{ nginx_name }}"
+
+podman_clean_network: "{{ network_name }}"
+podman_clean_image: "{{ image_full }}"
+
+podman_clean_volumes:
+  - "weaviate_data"
+  - "ollama_data"

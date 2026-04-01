@@ -1,0 +1,31 @@
+---
+# Dynatrace platform connection (injected by Monaco credential)
+dynatrace_api_config_platform_url: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_URL') | default('', true) }}"
+dynatrace_api_config_platform_token: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_TOKEN') | default('', true) }}"
+dynatrace_api_config_validate_certs: false
+
+# Settings API endpoint resolution
+# Preferred path for platform tenants. Falls back to legacy path if probe fails.
+dynatrace_api_config_settings_api_preferred_path: "/platform/classic/environment-api/v2/settings/objects"
+dynatrace_api_config_settings_api_fallback_path: "/api/v2/settings/objects"
+# Probe schema used to validate endpoint context.
+dynatrace_api_config_settings_api_probe_schema: "builtin:service-detection.full-web-request"
+
+# EDA webhook connection setting (app:dynatrace.redhat.ansible:eda-webhook.connection)
+# Passed via JT extra_vars at runtime
+dynatrace_api_config_eda_connection_name: "destination-automation-eda"
+# The EDA webhook listener URL — typically http://host.containers.internal:<dt_webhook_port>/
+dynatrace_api_config_eda_connection_url: ""
+# The bearer token configured in the EDA rulebook activation (dt_webhook_token)
+dynatrace_api_config_eda_connection_token: ""
+# The connection type identifier expected by the schema
+dynatrace_api_config_eda_connection_type: "api-token"
+dynatrace_api_config_eda_connection_event_stream_enabled: false
+
+# Service detection setting (builtin:service-detection.full-web-request)
+# Managed in this role because Monaco does not handle optional managementZones
+# consistently across tenant variants.
+dynatrace_api_config_service_detection_enabled: true
+dynatrace_api_config_service_detection_name: "destination-automation-ai-travel-advisor"
+dynatrace_api_config_service_detection_description: "Detect AI Travel Advisor service using only the web application ID."
+dynatrace_api_config_service_detection_application_id: "AI Travel Advisor"

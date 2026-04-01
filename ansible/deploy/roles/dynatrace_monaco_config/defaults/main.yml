@@ -1,0 +1,16 @@
+---
+# dynatrace_monaco_config role defaults
+
+dynatrace_monaco_platform_url: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_URL') | default('', true) }}"
+dynatrace_monaco_platform_token: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_TOKEN') | default('', true) }}"
+
+dynatrace_monaco_version: "2.28.5"
+dynatrace_monaco_binary_name: "monaco-linux-amd64"
+dynatrace_monaco_download_url: "https://github.com/Dynatrace/dynatrace-configuration-as-code/releases/download/v{{ dynatrace_monaco_version }}/{{ dynatrace_monaco_binary_name }}"
+
+dynatrace_monaco_base_dir: "{{ destination_automation_base_dir | default('/home/aap-service-account/destination-automation', true) }}"
+dynatrace_monaco_project_root: "{{ dynatrace_monaco_base_dir }}"
+dynatrace_monaco_config_root: "{{ dynatrace_monaco_project_root }}/dynatrace/config"
+dynatrace_monaco_manifest_path: "{{ dynatrace_monaco_config_root }}/manifest.yaml"
+dynatrace_monaco_binary_path: "{{ dynatrace_monaco_config_root }}/monaco"
+dynatrace_monaco_validate_certs: true

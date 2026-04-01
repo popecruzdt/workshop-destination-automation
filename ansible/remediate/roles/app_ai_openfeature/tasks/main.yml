@@ -1,0 +1,23 @@
+---
+- name: "app_ai_openfeature | Set embedding model via app API (remediation)"
+  ansible.builtin.uri:
+    url: "{{ app_ai_openfeature_base_url }}/api/v1/set-embedding-model?model={{ app_ai_embedding_model_requested | urlencode }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: _app_ai_openfeature_set_embedding_model_result
+
+- name: "app_ai_openfeature | Assert embedding model was set successfully"
+  ansible.builtin.assert:
+    that:
+      - _app_ai_openfeature_set_embedding_model_result.json.status == "success"
+    fail_msg: >-
+      Embedding model remediation failed.
+      API returned status: {{ _app_ai_openfeature_set_embedding_model_result.json.status | default('unknown') }}
+
+- name: "app_ai_openfeature | Display embedding model remediation result"
+  ansible.builtin.debug:
+    msg:
+      - "Embedding model remediation result: {{ _app_ai_openfeature_set_embedding_model_result.json.status }}"
+      - "Previous model: {{ _app_ai_openfeature_set_embedding_model_result.json.previous_model }}"
+      - "Current model: {{ _app_ai_openfeature_set_embedding_model_result.json.current_model }}"

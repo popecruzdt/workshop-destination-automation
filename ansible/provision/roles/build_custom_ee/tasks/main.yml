@@ -1,0 +1,111 @@
+---
+# Build custom EE images for workshop job templates
+
+- name: "build_custom_ee | Validate required build variables"
+  ansible.builtin.assert:
+    that:
+      - ee_build_profiles | length > 0
+      - ee_build_work_dir | length > 0
+      - (not ee_push_to_registry) or (ee_registry_host | length > 0)
+      - (not ee_push_to_registry) or ((ee_build_profiles | map(attribute='registry_image') | list | length) > 0)
+    fail_msg: "Required EE build variables are missing. Verify role defaults or override variables."
+
+- name: "build_custom_ee | Install ansible-builder if not present"
+  ansible.builtin.pip:
+    name: "{{ ee_ansible_builder_package }}"
+    state: present
+  become: true
+
+- name: "build_custom_ee | Verify ansible-builder is available"
+  ansible.builtin.shell: |
+    set -e
+    if command -v ansible-builder >/dev/null 2>&1; then
+      command -v ansible-builder
+      exit 0
+    fi
+    for candidate in /usr/local/bin/ansible-builder /usr/bin/ansible-builder; do
+      if [ -x "$candidate" ]; then
+        echo "$candidate"
+        exit 0
+      fi
+    done
+    exit 1
+  register: ee_builder_discovery
+  changed_when: false
+  failed_when: ee_builder_discovery.rc != 0
+  become: true
+
+- name: "build_custom_ee | Record ansible-builder binary path"
+  ansible.builtin.set_fact:
+    ee_builder_cmd: "{{ ee_builder_discovery.stdout_lines[-1] }}"
+
+- name: "build_custom_ee | Display ansible-builder version"
+  ansible.builtin.command:
+    argv:
+      - "{{ ee_builder_cmd }}"
+      - --version
+  register: ee_builder_version
+  changed_when: false
+  become: true
+
+- name: "build_custom_ee | Configure podman to skip TLS verification for Hub"
+  ansible.builtin.copy:
+    content: |
+      [[registry]]
+      location = "{{ ee_registry_host }}"
+      insecure = true
+    dest: /etc/containers/registries.conf.d/hub-insecure.conf
+    mode: '0644'
+  become: true
+  when:
+    - ee_push_to_registry
+    - not ee_registry_validate_certs
+
+- name: "build_custom_ee | Remove insecure registry override when TLS verify is enabled"
+  ansible.builtin.file:
+    path: /etc/containers/registries.conf.d/hub-insecure.conf
+    state: absent
+  become: true
+  when:
+    - ee_push_to_registry
+    - ee_registry_validate_certs
+
+- name: "build_custom_ee | Create working directory for EE build"
+  ansible.builtin.file:
+    path: "{{ ee_build_work_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "build_custom_ee | Log in to local Hub registry (prepare for push)"
+  ansible.builtin.shell: |
+    podman login -u {{ ee_registry_username | quote }} -p {{ ee_registry_password | quote }} \
+      --tls-verify={{ ee_registry_validate_certs | ternary('true', 'false') }} {{ ee_registry_host | quote }}
+  become: true
+  no_log: true
+  register: registry_login
+  changed_when: false
+  failed_when: registry_login.rc != 0
+  when: ee_push_to_registry
+
+- name: "build_custom_ee | Initialize build summary"
+  ansible.builtin.set_fact:
+    ee_build_profile_summaries: []
+
+- name: "build_custom_ee | Build execution environment profiles"
+  ansible.builtin.include_tasks: build_profile.yml
+  loop: "{{ ee_build_profiles }}"
+  loop_control:
+    loop_var: ee_profile
+
+- name: "build_custom_ee | Display configuration summary"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Custom EE images built successfully"
+      - "  Profiles: {{ ee_build_profile_summaries | map(attribute='name') | join(', ') }}"
+      - "  Local tags: {{ ee_build_profile_summaries | map(attribute='output_image') | join(', ') }}"
+      - "  Registry tags: {{ ee_build_profile_summaries | map(attribute='registry_summary') | join(', ') }}"
+      - ""
+      - "Next steps:"
+      - "  1. Register this EE in AAP"
+      - "  2. Update job templates to use this EE"
+      - "  3. Re-run clean-remove-app job template"

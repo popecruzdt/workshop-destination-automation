@@ -1,0 +1,10 @@
+---
+{% if ee_profile.collections | length == 0 %}
+# Intentionally empty: this EE relies entirely on capabilities already present in the base image.
+{% else %}
+collections:
+{% for collection in ee_profile.collections %}
+  - name: {{ collection.name }}
+    version: "{{ collection.version }}"
+{% endfor %}
+{% endif %}

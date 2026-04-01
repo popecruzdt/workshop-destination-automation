@@ -1,0 +1,42 @@
+---
+# =============================================================
+# Dynatrace Webhook Remediation Rulebook
+#
+# Listens for incoming Dynatrace problem or custom events forwarded
+# via a Dynatrace Workflow HTTP action and triggers the embedding
+# model remediation job template in AAP.
+#
+# Prerequisites:
+#   - This rulebook activation uses the destination-automation-dt-de
+#     Decision Environment (includes dynatrace.event_driven_ansible)
+#   - AAP Controller job template exists:
+#       destination-automation-remediate-app-ai-embedding
+#   - Dynatrace Workflow configured to POST events to:
+#       http://<eda-host>:{{ dt_webhook_port | default(5000) }}/
+#
+# Variables (set via activation extra_vars or environment):
+#   dt_webhook_port   - Port for the webhook listener (default: 5000)
+#   dt_webhook_token  - Optional bearer token for authenticating requests
+# =============================================================
+
+- name: "Dynatrace Webhook Remediation Rulebook"
+  hosts: all
+  sources:
+    - name: "dynatrace_webhook"
+      dynatrace.event_driven_ansible.dt_webhook:
+        host: "0.0.0.0"
+        port: "{{ dt_webhook_port | default(5000) }}"
+        token: "{{ dt_webhook_token | default(omit) }}"
+
+  rules:
+    - name: "Trigger embedding model remediation on Dynatrace problem event"
+      condition: |
+        event.payload is defined and
+        event.payload.eventData['event.category'] == 'ERROR' and
+        event.payload.eventData['event.name'] == 'AI Travel Advisor: Embedding Model Drift Detected'
+      action:
+        run_job_template:
+          name: "destination-automation-remediate-app-ai-embedding"
+          organization: "destination-automation"
+          extra_vars:
+            app_ai_embedding_model_requested: "nomic-embed-text"

@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: podman_deploy
+  author: workshop-lab
+  description: Deploys a container application using Podman
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+dependencies: []

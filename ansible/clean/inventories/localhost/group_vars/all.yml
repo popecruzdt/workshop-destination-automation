@@ -1,0 +1,75 @@
+---
+# ============================================================
+# easyTravel AI Travel Advisor - Shared Variables
+# ============================================================
+
+# --- Application ---
+app_name: "ai-travel-advisor"
+app_version: "1.0.0"
+app_environment: "workshop"
+
+# --- Container Image ---
+image_name: "localhost/ai-travel-advisor"
+image_tag: "latest"
+image_full: "{{ image_name }}:{{ image_tag }}"
+containerfile_path: "{{ (destination_automation_base_dir | default(project_root, true)) ~ '/app/Containerfile' }}"
+app_src_path: "{{ (destination_automation_base_dir | default(project_root, true)) ~ '/app' }}"
+
+# --- Container Runtime ---
+container_runtime: "podman"
+
+# --- Deployment ---
+travel_advisor_name: "travel-advisor"
+travel_advisor_port: 8080
+weaviate_name: "weaviate"
+weaviate_port: 8080
+ollama_name: "ollama"
+ollama_port: 11434
+otel_collector_name: "otel-collector"
+otel_collector_grpc_port: 4317
+otel_collector_http_port: 4318
+nginx_name: "travel-advisor-nginx"
+nginx_port: 80
+host_nginx_port: 81
+network_name: "travel-advisor-net"
+
+# easyTravel container environment variables
+travel_advisor_env:
+  OLLAMA_ENDPOINT: "http://{{ ollama_name }}:{{ ollama_port }}"
+  WEAVIATE_ENDPOINT: "{{ weaviate_name }}"
+  WEAVIATE_PORT: "{{ weaviate_port }}"
+  AI_MODEL: "qwen2.5:0.5b-instruct-q4_K_M"
+  AI_EMBEDDING_MODEL: "nomic-embed-text"
+  AI_TEMPERATURE: "0.7"
+  HOST: "0.0.0.0"
+  PORT: "{{ travel_advisor_port }}"
+  DEBUG: "false"
+  FORCE_REINDEX: "false"
+  CHUNK_SIZE: "500"
+  CHUNK_OVERLAP: "0"
+  RETRIEVAL_K: "10"
+  MIN_KB_OBJECTS: "450"
+  OPENLLMETRY_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://{{ otel_collector_name }}:{{ otel_collector_grpc_port }}"
+  OTEL_SERVICE_NAME: "ai-travel-advisor"
+  TRACELOOP_TRACE_CONTENT: "true"
+
+# --- Clean/Remove Configuration ---
+# Remove named podman volumes when cleaning (destructive operation)
+podman_clean_remove_volumes: false
+
+# Clean role action (remove_app or remove_image)
+podman_clean_action: "remove_app"
+
+# --- Dynatrace ---
+dynatrace_api_url: "{{ lookup('env', 'DYNATRACE_API_URL') | default('', true) }}"
+dynatrace_api_token: "{{ lookup('env', 'DYNATRACE_API_TOKEN') | default('', true) }}"
+dynatrace_metrics_ingest_path: "/api/v2/metrics/ingest"
+
+# --- Health Check ---
+health_check_url: "http://localhost:{{ host_nginx_port }}/health"
+health_check_retries: 10
+health_check_delay: 5
+
+# --- Paths ---
+project_root: "{{ playbook_dir | dirname | dirname | dirname }}"

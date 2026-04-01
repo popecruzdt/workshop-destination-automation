@@ -1,0 +1,91 @@
+---
+- name: "dynatrace_monaco_config | Validate required Monaco credentials"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_monaco_platform_url | length > 0
+      - dynatrace_monaco_platform_token | length > 0
+    fail_msg: >-
+      DT_PLATFORM_URL and DT_PLATFORM_TOKEN are required to deploy Monaco configurations.
+
+- name: "dynatrace_monaco_config | Ensure Monaco config directory exists"
+  ansible.builtin.file:
+    path: "{{ dynatrace_monaco_config_root }}"
+    state: directory
+    mode: "0755"
+
+- name: "dynatrace_monaco_config | Verify manifest file exists"
+  ansible.builtin.stat:
+    path: "{{ dynatrace_monaco_manifest_path }}"
+  register: dynatrace_monaco_manifest_stat
+
+- name: "dynatrace_monaco_config | Fail when manifest is missing"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_monaco_manifest_stat.stat.exists
+    fail_msg: "Monaco manifest not found at {{ dynatrace_monaco_manifest_path }}"
+
+- name: "dynatrace_monaco_config | Check for existing Monaco binary"
+  ansible.builtin.stat:
+    path: "{{ dynatrace_monaco_binary_path }}"
+  register: dynatrace_monaco_binary_stat
+
+- name: "dynatrace_monaco_config | Get existing Monaco binary version"
+  ansible.builtin.command:
+    cmd: "{{ dynatrace_monaco_binary_path }} version"
+  register: dynatrace_monaco_current_version
+  changed_when: false
+  failed_when: false
+  when: dynatrace_monaco_binary_stat.stat.exists
+
+- name: "dynatrace_monaco_config | Determine if Monaco download is required"
+  ansible.builtin.set_fact:
+    dynatrace_monaco_download_required: >-
+      {{
+        (not dynatrace_monaco_binary_stat.stat.exists)
+        or
+        (dynatrace_monaco_version not in (dynatrace_monaco_current_version.stdout | default('')))
+      }}
+
+- name: "dynatrace_monaco_config | Download pinned Monaco binary"
+  ansible.builtin.get_url:
+    url: "{{ dynatrace_monaco_download_url }}"
+    dest: "{{ dynatrace_monaco_binary_path }}"
+    mode: "0755"
+    force: true
+    validate_certs: "{{ dynatrace_monaco_validate_certs }}"
+  when: dynatrace_monaco_download_required
+
+- name: "dynatrace_monaco_config | Run Monaco dry-run validation"
+  ansible.builtin.command:
+    cmd: "{{ dynatrace_monaco_binary_path }} deploy manifest.yaml --dry-run --verbose"
+    chdir: "{{ dynatrace_monaco_config_root }}"
+  environment:
+    MONACO_FEAT_PLATFORM_TOKEN: "true"
+    DT_PLATFORM_URL: "{{ dynatrace_monaco_platform_url }}"
+    DT_PLATFORM_TOKEN: "{{ dynatrace_monaco_platform_token }}"
+  register: dynatrace_monaco_dry_run
+  changed_when: false
+
+- name: "dynatrace_monaco_config | Deploy Monaco project"
+  ansible.builtin.command:
+    cmd: "{{ dynatrace_monaco_binary_path }} deploy manifest.yaml --verbose"
+    chdir: "{{ dynatrace_monaco_config_root }}"
+  environment:
+    MONACO_FEAT_PLATFORM_TOKEN: "true"
+    DT_PLATFORM_URL: "{{ dynatrace_monaco_platform_url }}"
+    DT_PLATFORM_TOKEN: "{{ dynatrace_monaco_platform_token }}"
+  register: dynatrace_monaco_deploy
+  changed_when: >-
+    ('no configuration changes' not in (dynatrace_monaco_deploy.stdout | lower))
+    and
+    ('no configurations to deploy' not in (dynatrace_monaco_deploy.stdout | lower))
+
+- name: "dynatrace_monaco_config | Display deployment summary"
+  ansible.builtin.debug:
+    msg:
+      - "Monaco version target:  {{ dynatrace_monaco_version }}"
+      - "Monaco binary path:    {{ dynatrace_monaco_binary_path }}"
+      - "Manifest path:         {{ dynatrace_monaco_manifest_path }}"
+      - "Platform URL used:     {{ dynatrace_monaco_platform_url }}"
+      - "Dry-run rc:            {{ dynatrace_monaco_dry_run.rc }}"
+      - "Deploy rc:             {{ dynatrace_monaco_deploy.rc }}"

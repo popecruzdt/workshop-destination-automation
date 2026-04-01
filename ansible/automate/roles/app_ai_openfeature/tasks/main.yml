@@ -1,0 +1,45 @@
+---
+- name: "app_ai_openfeature | Determine embedding model request"
+  ansible.builtin.set_fact:
+    app_ai_embedding_model_change_requested: "{{ (app_ai_embedding_model_requested | default('', true) | length) > 0 }}"
+
+- name: "app_ai_openfeature | End gracefully when no embedding model is specified"
+  when: not app_ai_embedding_model_change_requested
+  block:
+    - name: "app_ai_openfeature | No-op message"
+      ansible.builtin.debug:
+        msg:
+          - "No embedding model change requested."
+          - "Nothing to update because app_ai_embedding_model_requested is unset or empty."
+    - name: "app_ai_openfeature | Stop execution for this host"
+      ansible.builtin.meta: end_host
+
+- name: "app_ai_openfeature | Evaluate requested embedding model support"
+  ansible.builtin.set_fact:
+    app_ai_embedding_model_supported: "{{ app_ai_embedding_model_requested in app_ai_supported_embedding_models }}"
+
+- name: "app_ai_openfeature | End gracefully when requested embedding model is unsupported"
+  when: not app_ai_embedding_model_supported
+  block:
+    - name: "app_ai_openfeature | Unsupported embedding model message"
+      ansible.builtin.debug:
+        msg:
+          - "Requested embedding model '{{ app_ai_embedding_model_requested }}' is not supported."
+          - "Supported models: {{ app_ai_supported_embedding_models | join(', ') }}"
+    - name: "app_ai_openfeature | Stop execution for this host"
+      ansible.builtin.meta: end_host
+
+- name: "app_ai_openfeature | Set embedding model via app API"
+  ansible.builtin.uri:
+    url: "{{ app_ai_openfeature_base_url }}/api/v1/set-embedding-model?model={{ app_ai_embedding_model_requested | urlencode }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: _app_ai_openfeature_set_embedding_model_result
+
+- name: "app_ai_openfeature | Display embedding model change result"
+  ansible.builtin.debug:
+    msg:
+      - "Embedding model update result: {{ _app_ai_openfeature_set_embedding_model_result.json.status }}"
+      - "Previous model: {{ _app_ai_openfeature_set_embedding_model_result.json.previous_model }}"
+      - "Current model: {{ _app_ai_openfeature_set_embedding_model_result.json.current_model }}"

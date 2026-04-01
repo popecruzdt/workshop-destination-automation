@@ -1,0 +1,217 @@
+configs:
+  - id: container-technology
+    config:
+      template: container-technology.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:container.technology
+        schemaVersion: "1.0.8"
+        scope: environment
+  - id: monitored-technologies-python
+    config:
+      template: monitored-technologies-python.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:monitored-technologies.python
+        schemaVersion: "1.0.2"
+        scope: environment
+  - id: monitored-technologies-go
+    config:
+      template: monitored-technologies-go.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:monitored-technologies.go
+        schemaVersion: "0.0.3"
+        scope: environment
+  - id: python-opentelemetry
+    config:
+      template: python-opentelemetry.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-logging
+    config:
+      template: python-logging.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-structlog
+    config:
+      template: python-structlog.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-fastapi
+    config:
+      template: python-fastapi.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-langchain
+    config:
+      template: python-langchain.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-openai
+    config:
+      template: python-openai.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-openai-guardrails-capture
+    config:
+      template: python-openai-guardrails-capture.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-autosensor
+    config:
+      template: python-autosensor.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-casp-software-component-extraction
+    config:
+      template: python-casp-software-component-extraction.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: python-starlette
+    config:
+      template: python-starlette.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:oneagent.features
+        schemaVersion: "1.5.10"
+        scope: environment
+  - id: journald-log-storage
+    config:
+      template: journald-log-storage.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:logmonitoring.log-storage-settings
+        schemaVersion: "1.0.18"
+        scope: environment
+  - id: bizevents-pipeline-destination-automation
+    config:
+      template: bizevents-pipeline-destination-automation.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:openpipeline.bizevents.pipelines
+        schemaVersion: "1.55"
+        scope: environment
+  - id: bizevents-routing
+    config:
+      template: bizevents-routing.json
+      skip: true
+      parameters:
+        host_group_id:
+          type: value
+          value: destination-automation
+        builtinopenpipelinebizeventspipelines__af0100f8e8f63783953eb65eaa61ac43__id:
+          configId: bizevents-pipeline-destination-automation
+          configType: builtin:openpipeline.bizevents.pipelines
+          property: id
+          type: reference
+    type:
+      settings:
+        schema: builtin:openpipeline.bizevents.routing
+        schemaVersion: "1.55"
+        scope: environment
+  - id: spans-pipeline-destination-automation
+    config:
+      template: spans-pipeline-destination-automation.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:openpipeline.spans.pipelines
+        schemaVersion: "1.55"
+        scope: environment
+  - id: spans-routing
+    config:
+      template: spans-routing.json
+      skip: true
+      parameters:
+        host_group_id:
+          type: value
+          value: destination-automation
+        builtinopenpipelinespanspipelines__8edca163d5a13eb7ac9380759a3719b9__id:
+          configId: spans-pipeline-destination-automation
+          configType: builtin:openpipeline.spans.pipelines
+          property: id
+          type: reference
+    type:
+      settings:
+        schema: builtin:openpipeline.spans.routing
+        schemaVersion: "1.55"
+        scope: environment
+  - id: logs-pipeline-destination-automation
+    config:
+      template: logs-pipeline-destination-automation.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:openpipeline.logs.pipelines
+        schemaVersion: "1.55"
+        scope: environment
+  - id: logs-routing
+    config:
+      template: logs-routing.json
+      skip: true
+      parameters:
+        host_group_id:
+          type: value
+          value: destination-automation
+        builtinopenpipelinelogspipelines__c1f43859d9a84c71b8e2aee6c2fb6f14__id:
+          configId: logs-pipeline-destination-automation
+          configType: builtin:openpipeline.logs.pipelines
+          property: id
+          type: reference
+    type:
+      settings:
+        schema: builtin:openpipeline.logs.routing
+        schemaVersion: "1.55"
+        scope: environment
+  - id: service-detection-full-web-request-ai-travel-advisor
+    config:
+      template: service-detection-full-web-request-ai-travel-advisor.json
+      skip: true
+    type:
+      settings:
+        schema: builtin:service-detection.full-web-request
+        schemaVersion: "2.1.14"
+        scope: environment

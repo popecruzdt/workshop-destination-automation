@@ -1,0 +1,42 @@
+- name: Update Custom Execution Environment in AAP
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    aap_controller_host: >-
+      {{
+        lookup('ansible.builtin.env', 'AAP_CONTROLLER_HOST')
+        | default('https://' + (lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true)), true)
+      }}
+    aap_controller_api_prefix: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_API_PREFIX') | default('/api/controller/', true) }}"
+    aap_controller_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
+    aap_controller_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') | default(lookup('ansible.builtin.env', 'AAP_ADMIN_PASSWORD') | default('', true), true) }}"
+    aap_controller_validate_certs: false
+    aap_org_name: "destination-automation"
+    aap_custom_ee_name: "destination-automation-ee"
+    aap_custom_ee_description: "Custom EE with containers.podman collection (creator-ee base)"
+    aap_custom_ee_registry_host: >-
+      {{
+        lookup('ansible.builtin.env', 'EE_REGISTRY_HOST')
+        | default(lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true), true), true)
+      }}
+    aap_custom_ee_image: "{{ aap_custom_ee_registry_host }}/destination-automation-ee:latest"
+
+  tasks:
+    - name: Update custom execution environment with Hub registry image
+      awx.awx.execution_environment:
+        controller_host: "{{ aap_controller_host }}"
+        controller_api_prefix: "{{ aap_controller_api_prefix }}"
+        controller_username: "{{ aap_controller_username }}"
+        controller_password: "{{ aap_controller_password }}"
+        validate_certs: "{{ aap_controller_validate_certs }}"
+        name: "{{ aap_custom_ee_name }}"
+        description: "{{ aap_custom_ee_description }}"
+        image: "{{ aap_custom_ee_image }}"
+        organization: "{{ aap_org_name }}"
+        state: present
+      register: ee_update
+
+    - name: Display EE update result
+      ansible.builtin.debug:
+        msg: "EE Updated: {{ ee_update.id }} - {{ ee_update.name }} = {{ ee_update.image }}"

@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: podman_build
+  author: workshop-lab
+  description: Builds a container image using Podman from a Containerfile
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+dependencies: []

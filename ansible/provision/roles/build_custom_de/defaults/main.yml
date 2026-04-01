@@ -1,0 +1,50 @@
+---
+# build_custom_de role defaults
+
+# DE image naming
+de_image_name: "destination-automation-dt-de"
+de_image_tag: "latest"
+
+# Local build output tag
+de_output_image: "localhost/{{ de_image_name }}:{{ de_image_tag }}"
+
+# Registry and certificate handling
+de_registry_host: >-
+  {{
+    lookup('ansible.builtin.env', 'DE_REGISTRY_HOST')
+    | default(lookup('ansible.builtin.env', 'EE_REGISTRY_HOST') | default(lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true), true), true), true)
+  }}
+de_registry_validate_certs: "{{ (lookup('ansible.builtin.env', 'DE_REGISTRY_VALIDATE_CERTS') | default('false', true)) | bool }}"
+
+# Local Hub registry details
+de_registry_username: "{{ lookup('ansible.builtin.env', 'DE_REGISTRY_USERNAME') | default('admin', true) }}"
+de_registry_password: "{{ lookup('ansible.builtin.env', 'DE_REGISTRY_PASSWORD') | default(lookup('ansible.builtin.env', 'AAP_ADMIN_PASSWORD') | default('', true), true) }}"
+de_registry_image: "{{ de_registry_host }}/{{ de_image_name }}:{{ de_image_tag }}"
+de_push_to_registry: "{{ (lookup('ansible.builtin.env', 'DE_PUSH_TO_REGISTRY') | default('true', true)) | bool }}"
+
+# DE base image — Red Hat supported Decision Environment from local Automation Hub
+# de-supported-rhel9:2.0 is not available in the local Hub; using :latest tag
+# (mirrors the pattern used by ee_oneagent_base_image pulling ee-supported-rhel9 from the local registry)
+de_base_image: "{{ de_registry_host }}/de-supported-rhel9:latest"
+de_package_manager_path: "/usr/bin/microdnf"
+
+# Build working directory
+de_build_work_dir: "/tmp/de-build-{{ ansible_date_time.iso8601_basic_short }}"
+
+# ansible-builder controls
+# Pinned to stable 3.x release for reproducible builds
+de_ansible_builder_package: "ansible-builder==3.1.1"
+de_builder_verbosity: 3
+
+# Decision Environment build profiles
+de_build_profiles:
+  - key: "dynatrace-de"
+    name: "{{ de_image_name }}"
+    description: "Decision Environment with Dynatrace EDA collection (de-supported-rhel9 base)"
+    output_image: "{{ de_output_image }}"
+    registry_image: "{{ de_registry_image }}"
+    base_image: "{{ de_base_image }}"
+    package_manager_path: "{{ de_package_manager_path }}"
+    collections:
+      - name: "dynatrace.event_driven_ansible"
+        version: ">=1.0.0"

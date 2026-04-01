@@ -1,0 +1,38 @@
+{
+  "enabled": true,
+  "name": "destination-automation-ai-travel-advisor",
+  "description": "Detect AI Travel Advisor service using only the web application ID.",
+  "idContributors": {
+    "applicationId": {
+      "enableIdContributor": false
+    },
+    "contextRoot": {
+      "enableIdContributor": true,
+      "serviceIdContributor": {
+        "contributionType": "OverrideValue",
+        "valueOverride": {
+          "value": "/"
+        }
+      }
+    },
+    "serverName": {
+      "enableIdContributor": true,
+      "serviceIdContributor": {
+        "contributionType": "OverrideValue",
+        "valueOverride": {
+          "value": "travel-advisor"
+        }
+      }
+    }
+  },
+  "conditions": [
+    {
+      "attribute": "ApplicationId",
+      "compareOperationType": "StringEquals",
+      "textValues": [
+        "AI Travel Advisor"
+      ],
+      "ignoreCase": true
+    }
+  ]
+}

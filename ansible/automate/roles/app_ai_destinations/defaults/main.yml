@@ -1,0 +1,25 @@
+---
+# app_ai_destinations role defaults
+
+# List of travel destinations to generate HTML files for.
+# Each entry must have:
+#   name:    Display name of the destination (used in the page title and filename)
+#   details: Free-text description used as the destination context paragraph(s)
+#
+# Example:
+#   travel_destinations:
+#     - name: London
+#       details: >
+#         London is a city in England with a population of 9 million.
+#         Heathrow is the main international airport.
+travel_destinations: []
+
+# Path to the app destinations directory where HTML files are written.
+# Resolved at runtime; falls back to the service account base dir.
+app_ai_destinations_base_dir: "{{ destination_automation_base_dir | default('/home/aap-service-account/destination-automation', true) }}"
+app_ai_destinations_path: "{{ app_config_path | default(app_ai_destinations_base_dir ~ '/app', true) }}/destinations"
+
+# Deploy vars file containing travel_advisor_env.
+# Setting FORCE_REINDEX to true after new destinations are written ensures the
+# KB is rebuilt on the next container recycle.
+app_ai_destinations_deploy_vars_file_path: "{{ (playbook_dir | dirname | dirname) ~ '/deploy/inventories/localhost/group_vars/all.yml' }}"

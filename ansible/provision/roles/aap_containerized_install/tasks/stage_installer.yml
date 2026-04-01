@@ -1,0 +1,57 @@
+---
+- name: Ensure installer archive target path
+  ansible.builtin.set_fact:
+    aap_installer_archive_path: "{{ aap_install_dir }}/{{ aap_installer_archive_name }}"
+
+- name: Download installer archive from URL
+  ansible.builtin.get_url:
+    url: "{{ aap_installer_url }}"
+    dest: "{{ aap_installer_archive_path }}"
+    mode: "0644"
+    force: false
+  when: aap_installer_url | length > 0
+
+- name: Copy installer archive from local path on managed host
+  ansible.builtin.copy:
+    src: "{{ aap_installer_local_path }}"
+    dest: "{{ aap_installer_archive_path }}"
+    remote_src: true
+    mode: "0644"
+  when:
+    - aap_installer_url | length == 0
+    - aap_installer_local_path | length > 0
+
+- name: Detect installer top directory from tarball
+  ansible.builtin.command: "tar -tf {{ aap_installer_archive_path }}"
+  register: aap_tar_list
+  changed_when: false
+
+- name: Derive extracted installer directory name
+  ansible.builtin.set_fact:
+    aap_installer_extracted_dir_name: >-
+      {{ (aap_tar_list.stdout_lines[0].split('/')[0]) if (aap_tar_list.stdout_lines | length > 0) else '' }}
+
+- name: Assert tarball structure is valid
+  ansible.builtin.assert:
+    that:
+      - aap_installer_extracted_dir_name | length > 0
+    fail_msg: "Unable to detect top-level directory in installer tarball."
+
+- name: Unpack installer archive
+  ansible.builtin.unarchive:
+    src: "{{ aap_installer_archive_path }}"
+    dest: "{{ aap_install_dir }}"
+    remote_src: true
+    creates: "{{ aap_install_dir }}/{{ aap_installer_extracted_dir_name }}"
+
+- name: Resolve final installer extracted directory path
+  ansible.builtin.set_fact:
+    aap_installer_extracted_dir: >-
+      {{ aap_installer_extracted_dir_override if (aap_installer_extracted_dir_override | length > 0)
+      else (aap_install_dir + '/' + aap_installer_extracted_dir_name) }}
+
+- name: Resolve bundle directory path
+  ansible.builtin.set_fact:
+    aap_bundle_dir: >-
+      {{ aap_bundle_dir_override if (aap_bundle_dir_override | length > 0)
+      else (aap_installer_extracted_dir + '/bundle') }}

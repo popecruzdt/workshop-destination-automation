@@ -1,0 +1,986 @@
+{
+  "metadataList": [],
+  "customId": "pipeline_destination-automation-bizevents_8224",
+  "displayName": "destination-automation-bizevents",
+  "processing": {
+    "processors": []
+  },
+  "securityContext": {
+    "processors": []
+  },
+  "costAllocation": {
+    "processors": []
+  },
+  "productAllocation": {
+    "processors": []
+  },
+  "storage": {
+    "processors": []
+  },
+  "smartscapeNodeExtraction": {
+    "processors": []
+  },
+  "smartscapeEdgeExtraction": {
+    "processors": []
+  },
+  "metricExtraction": {
+    "processors": [
+      {
+        "id": "processor_llm.usage.total_tokens_7200",
+        "type": "valueMetric",
+        "matcher": "isNotNull(llm.usage.total_tokens) and matchesValue(event.provider,\"openllmetry.ollama\") and matchesValue(event.type,\"gen_ai.llm\")",
+        "description": "llm.usage.total_tokens",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.llm.usage.total_tokens",
+          "field": "llm.usage.total_tokens",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "llm.request.type"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.system"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_gen_ai.llm.usage.input_tokens_2001",
+        "type": "valueMetric",
+        "matcher": "isNotNull(gen_ai.usage.input_tokens) and matchesValue(event.provider,\"openllmetry.ollama\") and matchesValue(event.type,\"gen_ai.llm\")",
+        "description": "gen_ai.usage.input_tokens",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.llm.usage.input_tokens",
+          "field": "gen_ai.usage.input_tokens",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "llm.request.type"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.system"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_gen_ai.llm.usage.output_tokens_2002",
+        "type": "valueMetric",
+        "matcher": "isNotNull(gen_ai.usage.output_tokens) and matchesValue(event.provider,\"openllmetry.ollama\") and matchesValue(event.type,\"gen_ai.llm\")",
+        "description": "gen_ai.usage.output_tokens",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.llm.usage.output_tokens",
+          "field": "gen_ai.usage.output_tokens",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "llm.request.type"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.system"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_gen_ai.llm.usage.cache_read_input_tokens_2003",
+        "type": "valueMetric",
+        "matcher": "isNotNull(gen_ai.usage.cache_read_input_tokens) and matchesValue(event.provider,\"openllmetry.ollama\") and matchesValue(event.type,\"gen_ai.llm\")",
+        "description": "gen_ai.usage.cache_read_input_tokens",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.llm.usage.cache_read_input_tokens",
+          "field": "gen_ai.usage.cache_read_input_tokens",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "llm.request.type"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.system"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_gen_ai.llm.duration_2004",
+        "type": "valueMetric",
+        "matcher": "matchesValue(event.provider,\"openllmetry.ollama\") and matchesValue(event.type,\"gen_ai.llm\")",
+        "description": "gen_ai.llm.duration",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.llm.duration",
+          "field": "duration",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "llm.request.type"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.system"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.score.avg_7287",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.score.avg) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.score.avg",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.score.avg",
+          "field": "weaviate.result.score.avg",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.target_vector"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.duration_1001",
+        "type": "valueMetric",
+        "matcher": "matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.duration",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.duration",
+          "field": "duration",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.aggregate.total_count_1002",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.aggregate.total_count) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.aggregate.total_count",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.aggregate.total_count",
+          "field": "weaviate.aggregate.total_count",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.count_1003",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.count) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.count",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.count",
+          "field": "weaviate.result.count",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.target_vector"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.score.min_1004",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.score.min) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.score.min",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.score.min",
+          "field": "weaviate.result.score.min",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.score.max_1005",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.score.max) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.score.max",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.score.max",
+          "field": "weaviate.result.score.max",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.distance.min_1006",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.distance.min) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.distance.min",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.distance.min",
+          "field": "weaviate.result.distance.min",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.target_vector"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.distance.max_1007",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.distance.max) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.distance.max",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.distance.max",
+          "field": "weaviate.result.distance.max",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.target_vector"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      },
+      {
+        "id": "processor_weaviate.result.distance.avg_1008",
+        "type": "valueMetric",
+        "matcher": "isNotNull(weaviate.result.distance.avg) and matchesValue(event.provider,\"openllmetry.weaviate\") and matchesValue(event.type,\"gen_ai.vectordb\")",
+        "description": "weaviate.result.distance.avg",
+        "enabled": true,
+        "valueMetric": {
+          "metricKey": "openpipeline.gen_ai.weaviate.result.distance.avg",
+          "field": "weaviate.result.distance.avg",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.security_context"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "db.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.collection"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.destination"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "rag.retry.attempt"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.query.limit"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "weaviate.target_vector"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.smartscape.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "davis": {
+    "processors": [
+      {
+        "id": "processor_Weaviate_Distance_Drift_Detected_4849",
+        "type": "davis",
+        "matcher": "event.type == \"gen_ai.vectordb\" and weaviate.result.count == 0 and weaviate.result.distance.avg == 1 and weaviate.result.distance.min == 1 and weaviate.result.distance.max == 1",
+        "description": "Weaviate Distance Drift Detected",
+        "enabled": true,
+        "davis": {
+          "properties": [
+            {
+              "key": "event.type",
+              "value": "ERROR_EVENT"
+            },
+            {
+              "key": "event.description",
+              "value": "The AI Travel Advisor is unable to retrieve relevant travel recommendations because the active embedding model does not match the model used to build the Weaviate knowledge base. A feature flag change switched the embedding model mid-operation, causing the vectors generated at query time to be incompatible with the indexed vectors already stored in the KB collection. Weaviate returned a maximum cosine distance of 1.0, meaning the query vector and all stored vectors are orthogonal - effectively no semantic similarity was found. Retrieval has failed and the application cannot provide accurate travel advice until the embedding model is reverted to the model used during indexing, or the knowledge base is re-indexed using the new model."
+            },
+            {
+              "key": "event.name",
+              "value": "AI Travel Advisor: Embedding Model Drift Detected"
+            },
+            {
+              "key": "service.name",
+              "value": "{service.name}"
+            },
+            {
+              "key": "dt.entity.service",
+              "value": "{dt.entity.service}"
+            },
+            {
+              "key": "dt.smartscape.service",
+              "value": "{dt.smartscape.service}"
+            },
+            {
+              "key": "dt.source_entity",
+              "value": "{dt.entity.service}"
+            },
+            {
+              "key": "dt.davis.timeout",
+              "value": "10"
+            },
+            {
+              "key": "dt.davis.is_merging_allowed",
+              "value": "true"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dataExtraction": {
+    "processors": []
+  }
+}

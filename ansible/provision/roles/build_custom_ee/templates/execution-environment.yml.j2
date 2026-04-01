@@ -1,0 +1,14 @@
+---
+version: 3
+
+images:
+  base_image:
+    name: "{{ ee_profile.base_image }}"
+
+options:
+  package_manager_path: {{ ee_profile.package_manager_path }}
+
+{% if ee_profile.collections | length > 0 %}
+dependencies:
+  galaxy: requirements.yml
+{% endif %}

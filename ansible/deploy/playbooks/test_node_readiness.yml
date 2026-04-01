@@ -1,0 +1,88 @@
+---
+# =============================================================
+# Node Readiness Test Playbook
+#
+# Checks:
+# 1) Operating system details
+# 2) Podman availability and version
+# 3) Non-root execution context details
+# =============================================================
+
+- name: "Workshop | Node readiness validation"
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: "Determine execution context"
+      ansible.builtin.set_fact:
+        readiness_local_connection: "{{ (ansible_connection | default('ssh')) == 'local' }}"
+        readiness_ee_detected: >-
+          {{
+            (ansible_env.AWX_TASK_ID is defined)
+            or (ansible_env.ANSIBLE_RUNNER_IDENT is defined)
+            or (ansible_facts.virtualization_type | default('') in ['container', 'podman', 'docker'])
+          }}
+
+    - name: "Show execution context"
+      ansible.builtin.debug:
+        msg:
+          - "Execution host: {{ inventory_hostname }}"
+          - "Connection type: {{ ansible_connection | default('ssh') }}"
+          - "Execution environment detected: {{ readiness_ee_detected }}"
+
+    - name: "Warn when checks are running inside local connection / EE"
+      ansible.builtin.debug:
+        msg:
+          - "NOTICE: This job is targeting localhost with local connection."
+          - "Checks are running inside the AAP execution environment container, not necessarily the target node OS."
+          - "For node-level validation, add a real target host to the inventory and run this template against that host."
+      when: readiness_local_connection
+
+    - name: "Show operating system details"
+      ansible.builtin.debug:
+        msg:
+          - "Host: {{ inventory_hostname }}"
+          - "OS family: {{ ansible_facts.os_family }}"
+          - "Distribution: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+          - "Kernel: {{ ansible_facts.kernel }}"
+
+    - name: "Check podman version"
+      ansible.builtin.command:
+        cmd: podman --version
+      register: podman_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: "Report podman check"
+      ansible.builtin.debug:
+        msg: >-
+          {% if podman_version_result.rc == 0 %}
+          podman installed: yes ({{ podman_version_result.stdout }})
+          {% else %}
+          podman installed: no
+          {% endif %}
+
+    - name: "Check sudo capability without making system changes"
+      ansible.builtin.command:
+        cmd:
+          - sudo
+          - -n
+          - id
+          - -u
+      register: sudo_check_result
+      changed_when: false
+      failed_when: false
+
+    - name: "Report sudo capability check"
+      ansible.builtin.debug:
+        msg: >-
+          {% set sudo_msg = (sudo_check_result.msg | default('')) ~ ' ' ~ (sudo_check_result.stderr | default('')) %}
+          {% if sudo_check_result.rc == 0 and sudo_check_result.stdout == '0' %}
+          sudo access: yes (credential can become root)
+          {% elif 'Missing sudo password' in sudo_msg or 'a password is required' in sudo_msg or 'password is required' in sudo_msg %}
+          sudo access: no (credential may have sudo rights, but sudo password is required and not provided)
+          {% elif 'is not in the sudoers' in sudo_msg or 'not allowed to execute' in sudo_msg %}
+          sudo access: no (credential user is not permitted to run sudo)
+          {% else %}
+          sudo access: no (unable to escalate with current credential; details: {{ sudo_msg | trim }})
+          {% endif %}

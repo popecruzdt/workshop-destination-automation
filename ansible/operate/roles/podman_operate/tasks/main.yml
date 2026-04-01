@@ -1,0 +1,38 @@
+---
+# podman_operate role - main entry point
+# Manages operations (start, stop, restart, recycle) for Podman-deployed easyTravel application stack
+# 
+# Usage:
+#   - include_role:
+#       name: podman_operate
+#       tasks_from: start       # or stop, restart, recycle
+#
+# Or by setting podman_operate_action variable:
+#   - include_role:
+#       name: podman_operate
+#     vars:
+#       podman_operate_action: start  # or stop, restart, recycle
+
+- name: "podman_operate | main | Validate action parameter"
+  ansible.builtin.assert:
+    that:
+      - podman_operate_action is defined
+      - podman_operate_action in ['start', 'stop', 'restart', 'recycle']
+    fail_msg: "podman_operate_action must be one of: start, stop, restart, recycle. Got: {{ podman_operate_action }}"
+    quiet: true
+
+- name: "podman_operate | main | Include start tasks"
+  ansible.builtin.include_tasks: start.yml
+  when: podman_operate_action == 'start'
+
+- name: "podman_operate | main | Include stop tasks"
+  ansible.builtin.include_tasks: stop.yml
+  when: podman_operate_action == 'stop'
+
+- name: "podman_operate | main | Include restart tasks"
+  ansible.builtin.include_tasks: restart.yml
+  when: podman_operate_action == 'restart'
+
+- name: "podman_operate | main | Include recycle tasks"
+  ansible.builtin.include_tasks: recycle.yml
+  when: podman_operate_action == 'recycle'

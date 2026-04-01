@@ -1,0 +1,22 @@
+---
+version: 3
+
+images:
+  base_image:
+    name: "{{ de_profile.base_image }}"
+
+options:
+  package_manager_path: {{ de_profile.package_manager_path }}
+
+dependencies:
+  galaxy: requirements.yml
+
+additional_build_steps:
+  prepend_builder:
+    # Build deps to compile systemd-python (transitive dep from ansible.eda): pkg-config, systemd headers, C compiler, Python 3.12 headers
+    - RUN {{ de_profile.package_manager_path }} install -y pkgconfig systemd-devel gcc python3.12-devel && {{ de_profile.package_manager_path }} clean all
+    # Remove RPM-managed cryptography so pip can upgrade it without conflicts (pip 26+ fails on rpm-installed packages with no RECORD file)
+    - RUN rpm -e python3.12-cryptography
+  prepend_final:
+    # Same RPM removal needed in final stage (stage 4 is also based on the base image)
+    - RUN rpm -e python3.12-cryptography

@@ -1,0 +1,13 @@
+configs:
+  - id: eda-remediation-workflow
+    config:
+      template: ai-travel-advisor-embedding-drift-remediation.json
+      skip: false
+      parameters:
+        dynatrace_eda_webhook_connection_id:
+          type: value
+          # TODO: This is not getting populated correctly when run by AAP Job Template
+          value: "{{ dynatrace_eda_webhook_connection_id }}"
+    type:
+      automation:
+        resource: workflow

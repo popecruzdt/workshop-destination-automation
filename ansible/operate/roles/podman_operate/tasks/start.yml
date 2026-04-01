@@ -1,0 +1,171 @@
+---
+# podman_operate | start tasks
+# Starts easyTravel application containers idempotently
+# If containers don't exist, fails gracefully with a warning
+# If containers are already running, no action is taken
+
+- name: "podman_operate | start | Check if containers exist"
+  containers.podman.podman_container_info:
+    name: "{{ item }}"
+  loop:
+    - "{{ weaviate_name }}"
+    - "{{ ollama_name }}"
+    - "{{ travel_advisor_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ nginx_name }}"
+  register: container_exists
+  failed_when: false
+  changed_when: false
+
+- name: "podman_operate | start | Warn if no containers found"
+  ansible.builtin.debug:
+    msg: "⚠ WARNING: No containers found to start. Did you forget to deploy the app first?"
+  when: container_exists.results | selectattr('containers', 'equalto', []) | list | length > 0
+
+- name: "podman_operate | start | Extract existing containers"
+  ansible.builtin.set_fact:
+    existing_containers: "{{ container_exists.results | selectattr('containers', 'ne', []) | map(attribute='item') | list }}"
+  changed_when: false
+  no_log: true
+
+- name: "podman_operate | start | Ensure Podman network exists"
+  containers.podman.podman_network:
+    name: "{{ network_name }}"
+    driver: bridge
+    state: present
+  when: existing_containers | length > 0
+
+- name: "podman_operate | start | Display start status"
+  ansible.builtin.debug:
+    msg:
+      - "Starting containers..."
+      - "Network: {{ network_name }}"
+      - "Access URL: http://localhost:{{ host_nginx_port }}"
+  when: existing_containers | length > 0
+
+- name: "podman_operate | start | Start Weaviate container"
+  containers.podman.podman_container:
+    name: "{{ weaviate_name }}"
+    state: started
+  register: weaviate_start
+  when:
+    - weaviate_name in existing_containers
+    - (container_exists.results | selectattr('item', 'equalto', weaviate_name) | first).containers[0].State.Running | default(false) is false
+  changed_when: weaviate_start.changed
+
+- name: "podman_operate | start | Start Ollama container"
+  containers.podman.podman_container:
+    name: "{{ ollama_name }}"
+    state: started
+  register: ollama_start
+  when:
+    - ollama_name in existing_containers
+    - (container_exists.results | selectattr('item', 'equalto', ollama_name) | first).containers[0].State.Running | default(false) is false
+  changed_when: ollama_start.changed
+
+- name: "podman_operate | start | Wait for Ollama to be healthy (up to 2 minutes)"
+  containers.podman.podman_container_info:
+    name: "{{ ollama_name }}"
+  register: ollama_info
+  until: >
+    ollama_info.containers | length > 0 and
+    ollama_info.containers[0].State.Health.Status is defined and
+    ollama_info.containers[0].State.Health.Status == "healthy"
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
+  failed_when: false
+  when: ollama_name in existing_containers
+
+- name: "podman_operate | start | Verify Ollama is healthy"
+  ansible.builtin.fail:
+    msg: "Ollama container failed to reach healthy state. Current status: {{ ollama_info.containers[0].State.Health.Status | default('unknown') }}"
+  when:
+    - ollama_name in existing_containers
+    - ollama_info.containers | length == 0 or ollama_info.containers[0].State.Health.Status | default('') != "healthy"
+
+- name: "podman_operate | start | Pull LLM model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ travel_advisor_env.AI_MODEL }}"
+  register: ollama_pull
+  when: ollama_name in existing_containers
+
+- name: "podman_operate | start | Pull embedding model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ travel_advisor_env.AI_EMBEDDING_MODEL }}"
+  register: ollama_embedding_pull
+  when: ollama_name in existing_containers
+
+- name: "podman_operate | start | Start OpenTelemetry Collector container"
+  containers.podman.podman_container:
+    name: "{{ otel_collector_name }}"
+    state: started
+  register: otel_start
+  when:
+    - otel_collector_name in existing_containers
+    - (container_exists.results | selectattr('item', 'equalto', otel_collector_name) | first).containers[0].State.Running | default(false) is false
+  changed_when: otel_start.changed
+
+- name: "podman_operate | start | Start easyTravel container"
+  containers.podman.podman_container:
+    name: "{{ travel_advisor_name }}"
+    state: started
+  register: travel_advisor_start
+  when:
+    - travel_advisor_name in existing_containers
+    - (container_exists.results | selectattr('item', 'equalto', travel_advisor_name) | first).containers[0].State.Running | default(false) is false
+  changed_when: travel_advisor_start.changed
+
+- name: "podman_operate | start | Wait for easyTravel to stabilize"
+  ansible.builtin.pause:
+    seconds: "{{ easytravel_startup_delay }}"
+  when: travel_advisor_name in existing_containers
+
+- name: "podman_operate | start | Start Nginx reverse proxy container"
+  containers.podman.podman_container:
+    name: "{{ nginx_name }}"
+    state: started
+  register: nginx_start
+  when:
+    - nginx_name in existing_containers
+    - (container_exists.results | selectattr('item', 'equalto', nginx_name) | first).containers[0].State.Running | default(false) is false
+  changed_when: nginx_start.changed
+
+- name: "podman_operate | start | Pause to allow stack to stabilize"
+  ansible.builtin.pause:
+    seconds: "{{ stack_stabilization_delay }}"
+  when: existing_containers | length > 0
+
+- name: "podman_operate | start | Perform health check"
+  ansible.builtin.uri:
+    url: "{{ health_check_url }}"
+    method: GET
+    status_code: 200
+  register: health_response
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
+  until: health_response.status == 200
+  failed_when: false
+  when: travel_advisor_name in existing_containers
+
+- name: "podman_operate | start | Display health check result"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Health status:      {{ health_response.json.status }}"
+      - "✓ Service:            {{ health_response.json.service }}"
+      - "✓ Version:            {{ health_response.json.version }}"
+      - "✓ Ollama model:       {{ health_response.json.ollama.model }}"
+      - "✓ Ollama connected:   {{ health_response.json.ollama.connected }}"
+      - "✓ Weaviate connected: {{ health_response.json.weaviate.connected }}"
+  when:
+    - health_response.status is defined and health_response.status == 200
+    - travel_advisor_name in existing_containers
+
+- name: "podman_operate | start | Confirm start complete"
+  ansible.builtin.debug:
+    msg:
+      - "✓ easyTravel application stack started successfully!"
+      - "✓ Access the web UI at: http://localhost:{{ host_nginx_port }}"
+      - "✓ API endpoints available at: http://localhost:{{ host_nginx_port }}/api/v1"
+  when: existing_containers | length > 0

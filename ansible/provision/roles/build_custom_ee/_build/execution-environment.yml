@@ -1,0 +1,9 @@
+---
+version: 3
+
+images:
+  base_image:
+    name: "{{ ee_base_image }}"
+
+options:
+  package_manager_path: /usr/bin/microdnf

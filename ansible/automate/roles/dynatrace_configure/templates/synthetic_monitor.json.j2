@@ -1,0 +1,69 @@
+{
+  "name": "{{ dynatrace_synthetic_monitor_name }}",
+  "frequencyMin": {{ dynatrace_synthetic_monitor_frequency }},
+  "enabled": true,
+  "type": "HTTP",
+  "script": {
+    "version": "1.0",
+    "requests": [
+      {
+        "url": "http://localhost:{{ host_port }}/health",
+        "method": "GET",
+        "description": "Health check endpoint",
+        "validation": {
+          "rules": [
+            {
+              "type": "httpStatusesList",
+              "value": "200",
+              "passIfFound": true
+            },
+            {
+              "type": "httpBodyContains",
+              "value": "healthy",
+              "passIfFound": true
+            }
+          ]
+        },
+        "configuration": {
+          "acceptAnyCertificate": true,
+          "followRedirects": true
+        },
+        "requestBody": "",
+        "preProcessingScript": "",
+        "postProcessingScript": ""
+      }
+    ]
+  },
+  "locations": [],
+  "tags": [
+    {
+      "source": "USER",
+      "context": "CONTEXTLESS",
+      "key": "workshop"
+    },
+    {
+      "source": "USER",
+      "context": "CONTEXTLESS",
+      "key": "app",
+      "value": "{{ app_name }}"
+    }
+  ],
+  "anomalyDetection": {
+    "outageHandling": {
+      "globalOutage": true,
+      "globalOutagePolicy": {
+        "consecutiveRuns": 3
+      },
+      "localOutage": false
+    },
+    "loadingTimeThresholds": {
+      "enabled": true,
+      "thresholds": [
+        {
+          "type": "TOTAL",
+          "valueMs": 5000
+        }
+      ]
+    }
+  }
+}

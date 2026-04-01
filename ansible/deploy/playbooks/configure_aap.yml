@@ -1,0 +1,21 @@
+---
+# =============================================================
+# Configure AAP Workshop Objects
+# Creates organization, project, inventory, and users in AAP.
+#
+# Usage:
+#   ansible-playbook deploy/playbooks/configure_aap.yml
+#
+# Optional variables:
+#   -e aap_deploy_mode=local|external
+#   -e aap_controller_host=https://your-aap-host
+# =============================================================
+
+- name: "Workshop | Configure AAP organization, project, inventory, and users"
+  hosts: localhost
+  gather_facts: true
+
+  tasks:
+    - name: "Configure AAP objects"
+      ansible.builtin.include_role:
+        name: aap_config

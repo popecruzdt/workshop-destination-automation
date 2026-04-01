@@ -1,0 +1,27 @@
+---
+# =============================================================
+# Configure AAP EDA Objects
+#
+# Registers the Dynatrace Decision Environment, creates the EDA
+# project, and activates the Dynatrace webhook remediation rulebook.
+#
+# Run independently (does not require configure_aap.yml to run first,
+# but AAP organization must already exist):
+#   ansible-playbook deploy/playbooks/configure_eda.yml
+#
+# Optional variables:
+#   -e aap_eda_controller_host=https://your-aap-host
+#   -e aap_eda_activation_enabled=false   # register without activating
+#   -e aap_eda_project_url=https://github.com/org/repo  # use git SCM source
+#   -e aap_eda_project_type=git
+# =============================================================
+
+- name: "Workshop | Configure AAP EDA decision environment, project, and rulebook activation"
+  hosts: localhost
+  gather_facts: true
+
+  tasks:
+    - name: "Configure EDA objects"
+      ansible.builtin.include_role:
+        name: aap_config
+        tasks_from: eda_objects.yml

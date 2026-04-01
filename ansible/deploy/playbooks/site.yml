@@ -1,0 +1,25 @@
+---
+# =============================================================
+# Site Playbook - Orchestrates the full workshop deployment
+# Uses Red Hat Ansible Automation Platform certified 
+# collection modules for container orchestration.
+#
+# Usage: ansible-playbook deploy/playbooks/site.yml
+# =============================================================
+
+- name: "Workshop | Build and Deploy easyTravel Application"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  tasks:
+    - name: "Display workshop banner"
+      ansible.builtin.debug:
+        msg:
+          - "====================================================="
+          - " Dynatrace + Red Hat AAP Workshop                    "
+          - " easyTravel AI Travel Advisor Deployment             "
+          - " Using Podman Collection Modules (AAP Certified)     "
+          - "====================================================="
+
+- import_playbook: build_images.yml
+- import_playbook: deploy_app.yml

@@ -1,0 +1,159 @@
+---
+- name: Optionally set host FQDN
+  ansible.builtin.hostname:
+    name: "{{ aap_fqdn }}"
+  when:
+    - aap_force_set_hostname
+    - aap_fqdn | length > 0
+
+- name: Check RHSM status when registration automation is enabled
+  ansible.builtin.command: subscription-manager status
+  register: aap_rhsm_status
+  changed_when: false
+  failed_when: false
+  when: aap_register_with_rhsm
+
+- name: Optionally register host with RHSM using username/password
+  ansible.builtin.command: >-
+    subscription-manager register
+    --username {{ aap_rhsm_username }}
+    --password {{ aap_rhsm_password }}
+    --auto-attach
+  register: aap_rhsm_register_userpass
+  changed_when: aap_rhsm_register_userpass.rc == 0
+  no_log: true
+  when:
+    - aap_register_with_rhsm
+    - aap_rhsm_username | length > 0
+    - aap_rhsm_password | length > 0
+    - aap_rhsm_status.rc != 0
+
+- name: Optionally register host with RHSM using activation key
+  ansible.builtin.command: >-
+    subscription-manager register
+    --activationkey {{ aap_rhsm_activationkey }}
+    --org {{ aap_rhsm_org_id }}
+  register: aap_rhsm_register_key
+  changed_when: aap_rhsm_register_key.rc == 0
+  no_log: true
+  when:
+    - aap_register_with_rhsm
+    - aap_rhsm_activationkey | length > 0
+    - aap_rhsm_org_id | length > 0
+    - aap_rhsm_status.rc != 0
+
+- name: Refresh dnf metadata
+  ansible.builtin.dnf:
+    update_cache: true
+
+- name: Check enabled dnf repositories
+  ansible.builtin.command: dnf repolist --enabled
+  register: aap_dnf_repos
+  changed_when: false
+
+- name: Assert BaseOS repo is enabled
+  ansible.builtin.assert:
+    that:
+      - "'baseos' in (aap_dnf_repos.stdout | lower)"
+    fail_msg: "BaseOS repository appears to be missing from enabled repos."
+
+- name: Assert AppStream repo is enabled
+  ansible.builtin.assert:
+    that:
+      - "'appstream' in (aap_dnf_repos.stdout | lower)"
+    fail_msg: "AppStream repository appears to be missing from enabled repos."
+
+- name: Install required packages
+  ansible.builtin.dnf:
+    name: "{{ aap_required_packages }}"
+    state: present
+
+- name: Install optional troubleshooting packages
+  ansible.builtin.dnf:
+    name: "{{ aap_troubleshooting_packages }}"
+    state: present
+
+- name: Ensure install workspace directory exists
+  ansible.builtin.file:
+    path: "{{ aap_install_dir }}"
+    state: directory
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0755"
+
+- name: Ensure AAP base runtime directory exists
+  ansible.builtin.file:
+    path: "{{ aap_base_dir }}"
+    state: directory
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0755"
+
+- name: Ensure XDG data directory exists under AAP base path
+  ansible.builtin.file:
+    path: "{{ aap_xdg_data_home }}"
+    state: directory
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0755"
+
+- name: Ensure environment.d config directory exists for install user
+  ansible.builtin.file:
+    path: "/home/{{ aap_install_user }}/.config/environment.d"
+    state: directory
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0755"
+
+- name: Persist XDG_DATA_HOME for install user systemd sessions
+  ansible.builtin.lineinfile:
+    path: "/home/{{ aap_install_user }}/.config/environment.d/aap.conf"
+    line: "XDG_DATA_HOME={{ aap_xdg_data_home }}"
+    create: true
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0644"
+
+- name: Check podman store root
+  ansible.builtin.command: podman info --format '{{ "{{ .Store.GraphRoot }}" }}'
+  register: aap_podman_graph_root
+  changed_when: false
+
+- name: Warn if podman graph root may be on NFS
+  ansible.builtin.debug:
+    msg: >-
+      Podman graph root appears to be under /home. If /home is NFS-mounted,
+      move podman storage to local disk to avoid rootless podman NFS issues.
+  when: aap_podman_graph_root.stdout is search('^/home/')
+
+- name: Gather package facts for firewall handling
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Check firewalld service state
+  ansible.builtin.command: systemctl is-active firewalld
+  register: aap_firewalld_state
+  changed_when: false
+  failed_when: false
+  when:
+    - aap_manage_firewall
+    - "'firewalld' in ansible_facts.packages"
+
+- name: Open workshop firewall ports with firewall-cmd
+  ansible.builtin.command: >-
+    firewall-cmd --zone={{ aap_firewall_zone }} --permanent --add-port={{ item }}
+  register: aap_firewalld_add_port
+  changed_when: "'success' in (aap_firewalld_add_port.stdout | lower)"
+  loop: "{{ aap_firewall_ports }}"
+  when:
+    - aap_manage_firewall
+    - "'firewalld' in ansible_facts.packages"
+    - aap_firewalld_state.rc == 0
+
+- name: Reload firewalld after port updates
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
+  when:
+    - aap_manage_firewall
+    - "'firewalld' in ansible_facts.packages"
+    - aap_firewalld_state.rc == 0

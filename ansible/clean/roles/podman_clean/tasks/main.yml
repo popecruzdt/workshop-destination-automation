@@ -1,0 +1,23 @@
+---
+# podman_clean role - task router
+
+- name: "podman_clean | Validate clean action"
+  ansible.builtin.assert:
+    that:
+      - podman_clean_action in ['remove_app', 'remove_image']
+    fail_msg: "Unsupported podman_clean_action '{{ podman_clean_action }}'. Use 'remove_app' or 'remove_image'."
+
+- name: "podman_clean | Verify Podman is installed"
+  ansible.builtin.command:
+    cmd: podman --version
+  register: podman_clean_podman_version
+  changed_when: false
+  failed_when: podman_clean_podman_version.rc != 0
+
+- name: "podman_clean | Remove application resources"
+  ansible.builtin.include_tasks: remove_app.yml
+  when: podman_clean_action == 'remove_app'
+
+- name: "podman_clean | Remove application image"
+  ansible.builtin.include_tasks: remove_image.yml
+  when: podman_clean_action == 'remove_image'

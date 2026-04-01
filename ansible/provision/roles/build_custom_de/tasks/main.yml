@@ -1,0 +1,110 @@
+---
+# Build custom Decision Environment images for workshop EDA rulebook activations
+
+- name: "build_custom_de | Validate required build variables"
+  ansible.builtin.assert:
+    that:
+      - de_build_profiles | length > 0
+      - de_build_work_dir | length > 0
+      - (not de_push_to_registry) or (de_registry_host | length > 0)
+      - (not de_push_to_registry) or ((de_build_profiles | map(attribute='registry_image') | list | length) > 0)
+    fail_msg: "Required DE build variables are missing. Verify role defaults or override variables."
+
+- name: "build_custom_de | Install ansible-builder if not present"
+  ansible.builtin.pip:
+    name: "{{ de_ansible_builder_package }}"
+    state: present
+  become: true
+
+- name: "build_custom_de | Verify ansible-builder is available"
+  ansible.builtin.shell: |
+    set -e
+    if command -v ansible-builder >/dev/null 2>&1; then
+      command -v ansible-builder
+      exit 0
+    fi
+    for candidate in /usr/local/bin/ansible-builder /usr/bin/ansible-builder; do
+      if [ -x "$candidate" ]; then
+        echo "$candidate"
+        exit 0
+      fi
+    done
+    exit 1
+  register: de_builder_discovery
+  changed_when: false
+  failed_when: de_builder_discovery.rc != 0
+  become: true
+
+- name: "build_custom_de | Record ansible-builder binary path"
+  ansible.builtin.set_fact:
+    de_builder_cmd: "{{ de_builder_discovery.stdout_lines[-1] }}"
+
+- name: "build_custom_de | Display ansible-builder version"
+  ansible.builtin.command:
+    argv:
+      - "{{ de_builder_cmd }}"
+      - --version
+  register: de_builder_version
+  changed_when: false
+  become: true
+
+- name: "build_custom_de | Configure podman to skip TLS verification for Hub"
+  ansible.builtin.copy:
+    content: |
+      [[registry]]
+      location = "{{ de_registry_host }}"
+      insecure = true
+    dest: /etc/containers/registries.conf.d/hub-insecure.conf
+    mode: '0644'
+  become: true
+  when:
+    - de_push_to_registry
+    - not de_registry_validate_certs
+
+- name: "build_custom_de | Remove insecure registry override when TLS verify is enabled"
+  ansible.builtin.file:
+    path: /etc/containers/registries.conf.d/hub-insecure.conf
+    state: absent
+  become: true
+  when:
+    - de_push_to_registry
+    - de_registry_validate_certs
+
+- name: "build_custom_de | Create working directory for DE build"
+  ansible.builtin.file:
+    path: "{{ de_build_work_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "build_custom_de | Log in to local Hub registry (prepare for push)"
+  ansible.builtin.shell: |
+    podman login -u {{ de_registry_username | quote }} -p {{ de_registry_password | quote }} \
+      --tls-verify={{ de_registry_validate_certs | ternary('true', 'false') }} {{ de_registry_host | quote }}
+  become: true
+  no_log: true
+  register: de_registry_login
+  changed_when: false
+  failed_when: de_registry_login.rc != 0
+  when: de_push_to_registry
+
+- name: "build_custom_de | Initialize build summary"
+  ansible.builtin.set_fact:
+    de_build_profile_summaries: []
+
+- name: "build_custom_de | Build decision environment profiles"
+  ansible.builtin.include_tasks: build_profile.yml
+  loop: "{{ de_build_profiles }}"
+  loop_control:
+    loop_var: de_profile
+
+- name: "build_custom_de | Display configuration summary"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Custom DE images built successfully"
+      - "  Profiles: {{ de_build_profile_summaries | map(attribute='name') | join(', ') }}"
+      - "  Local tags: {{ de_build_profile_summaries | map(attribute='output_image') | join(', ') }}"
+      - "  Registry tags: {{ de_build_profile_summaries | map(attribute='registry_summary') | join(', ') }}"
+      - ""
+      - "Next steps:"
+      - "  1. Register this DE in AAP EDA"
+      - "  2. Run: ansible-playbook deploy/playbooks/configure_eda.yml"

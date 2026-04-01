@@ -1,0 +1,26 @@
+---
+# =============================================================
+# Restart App Playbook
+# Stops all easyTravel containers then starts them back up.
+# Preserves volumes, images, and the Podman network.
+# Does NOT rebuild images or re-pull the LLM model.
+#
+# Usage:
+#   ansible-playbook operate/playbooks/restart_app.yml
+# =============================================================
+
+- import_playbook: stop_app.yml
+
+- name: "Workshop | Restart easyTravel Application Stack"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../../deploy/inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Restart application stack with podman_operate role"
+      ansible.builtin.include_role:
+        name: podman_operate
+      vars:
+        podman_operate_action: restart

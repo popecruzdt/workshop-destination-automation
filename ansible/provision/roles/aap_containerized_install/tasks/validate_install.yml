@@ -1,0 +1,152 @@
+---
+- name: Wait for AAP gateway to be ready
+  ansible.builtin.uri:
+    url: "https://{{ aap_public_hostname }}"
+    method: GET
+    status_code:
+      - 200
+      - 301
+      - 302
+      - 401
+    validate_certs: false
+  register: aap_gateway_check
+  until: aap_gateway_check is succeeded
+  retries: 30
+  delay: 10
+  timeout: 300
+
+- name: Wait for AAP controller API to respond
+  ansible.builtin.uri:
+    url: "https://{{ aap_public_hostname }}/api/controller/v2/ping/"
+    method: GET
+    status_code:
+      - 200
+      - 401
+    validate_certs: false
+  register: aap_api_check
+  until: aap_api_check is succeeded
+  retries: 30
+  delay: 10
+  timeout: 300
+
+- name: Wait for AAP gateway API to respond
+  ansible.builtin.uri:
+    url: "https://{{ aap_public_hostname }}/api/gateway/v1/ping/"
+    method: GET
+    status_code:
+      - 200
+      - 401
+    validate_certs: false
+  register: aap_gateway_api_check
+  until: aap_gateway_api_check is succeeded
+  retries: 30
+  delay: 10
+  timeout: 300
+
+- name: Resolve rootless podman storage paths used by AAP
+  ansible.builtin.set_fact:
+    aap_podman_root: "{{ aap_xdg_data_home }}/containers/storage"
+    aap_podman_runroot: "/run/user/{{ ansible_user_uid }}/containers"
+
+- name: Check running podman containers
+  ansible.builtin.command:
+    argv:
+      - podman
+      - --root
+      - "{{ aap_podman_root }}"
+      - --runroot
+      - "{{ aap_podman_runroot }}"
+      - ps
+      - --format
+      - json
+  register: aap_podman_ps
+  changed_when: false
+
+- name: Parse podman container list
+  ansible.builtin.set_fact:
+    aap_running_containers: "{{ (aap_podman_ps.stdout | default('[]')) | from_json }}"
+
+- name: Build flattened container name list
+  ansible.builtin.set_fact:
+    aap_container_names: "{{ aap_running_containers | map(attribute='Names') | map('first') | list }}"
+
+- name: Validate expected AAP containers are running
+  ansible.builtin.assert:
+    that:
+      - aap_container_names | select('search', 'gateway') | list | length > 0
+      - aap_container_names | select('search', 'controller') | list | length > 0
+      - aap_container_names | select('search', 'postgres') | list | length > 0
+      - aap_container_names | select('search', 'redis') | list | length > 0
+    fail_msg: >-
+      Expected AAP containers (gateway, controller, postgres, redis) are not running.
+      Run 'podman --root {{ aap_podman_root }} --runroot {{ aap_podman_runroot }} ps' to check container status.
+
+- name: Display AAP post-install summary
+  ansible.builtin.debug:
+    msg: |
+      =========================================
+      AAP 2.6 Containerized Installation Complete
+      =========================================
+      
+      Gateway URL:
+        https://{{ aap_public_hostname }}
+      
+      Gateway API Endpoint:
+        https://{{ aap_public_hostname }}/api/gateway/v1/
+
+      Controller API Endpoint:
+        https://{{ aap_public_hostname }}/api/controller/v2/
+      
+      Default Admin Credentials:
+        Username: admin
+        Password: {{ aap_admin_password }}
+      
+      Installation Directory:
+        {{ aap_install_dir }}
+      
+      Runtime Data Location:
+        {{ aap_base_dir }}
+      
+      Generated Installer Inventory:
+        {{ aap_inventory_output_path }}
+      
+      Container Runtime Data (XDG):
+        {{ aap_xdg_data_home }}
+      
+      Running Containers:
+      {% for container in aap_running_containers %}
+        - {{ container.Names[0] }} (ID: {{ container.Id[:12] }})
+      {% endfor %}
+      
+      Next Steps:
+        1. Open https://{{ aap_public_hostname }} in a browser
+        2. Log in with admin credentials above
+        3. Navigate to Administration > Instances to verify cluster health
+        4. Create organizations, projects, and job templates as needed
+      
+      Documentation:
+        https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.6/
+      
+      =========================================
+
+- name: Collect AAP logs for troubleshooting (if installation failed)
+  ansible.builtin.command:
+    argv:
+      - podman
+      - --root
+      - "{{ aap_podman_root }}"
+      - --runroot
+      - "{{ aap_podman_runroot }}"
+      - logs
+      - -t
+      - --tail
+      - "100"
+      - "{{ item }}"
+  register: aap_container_logs
+  failed_when: false
+  loop:
+    - automation-gateway
+    - automation-controller-web
+    - postgresql
+    - redis-unix
+  when: aap_api_check is failed or aap_gateway_check is failed

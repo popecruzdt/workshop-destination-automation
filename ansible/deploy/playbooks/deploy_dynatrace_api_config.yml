@@ -1,0 +1,15 @@
+---
+# =============================================================
+# Configure Dynatrace settings via Settings API
+#
+# Requires (injected by Dynatrace Monaco credential):
+#   DT_PLATFORM_URL   - e.g. https://<env-id>.apps.dynatrace.com
+#   DT_PLATFORM_TOKEN - Dynatrace platform token with settings.read + settings.write scopes
+# =============================================================
+
+- name: "Workshop | Configure Dynatrace API Settings"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: true
+
+  roles:
+    - role: dynatrace_api_config

@@ -1,0 +1,29 @@
+---
+- name: "Workshop | Build custom execution environment images"
+  hosts: localhost
+  gather_facts: true
+  vars:
+    ansible_connection: local
+
+  roles:
+    - role: build_custom_ee
+      become: true
+      tags:
+        - build-ee
+        - provision
+
+  post_tasks:
+    - name: "Display next steps"
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "========================================"
+          - "Custom EE Build Complete"
+          - "========================================"
+          - "Registry images: {{ ee_build_profile_summaries | map(attribute='registry_summary') | join(', ') }}"
+          - ""
+          - "To complete the workflow:"
+          - "  1. Run: ansible-playbook deploy/playbooks/configure_aap.yml"
+          - "     This will register the EE in AAP"
+          - "  2. Run: destination-automation-clean-remove-app job template"
+          - ""

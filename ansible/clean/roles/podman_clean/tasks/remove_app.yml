@@ -1,0 +1,31 @@
+---
+# Remove easyTravel application runtime resources
+
+- name: "podman_clean | Stop and remove application containers"
+  containers.podman.podman_container:
+    name: "{{ item }}"
+    state: absent
+    force_delete: true
+  loop: "{{ podman_clean_containers }}"
+  failed_when: false
+
+- name: "podman_clean | Remove application network"
+  containers.podman.podman_network:
+    name: "{{ podman_clean_network }}"
+    state: absent
+  failed_when: false
+
+- name: "podman_clean | Remove application data volumes (optional)"
+  containers.podman.podman_volume:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ podman_clean_volumes }}"
+  when: podman_clean_remove_volumes | bool
+  failed_when: false
+
+- name: "podman_clean | Display app cleanup summary"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Removed application containers (if present)"
+      - "✓ Removed network: {{ podman_clean_network }} (if present)"
+      - "✓ Removed volumes: {{ podman_clean_volumes | join(', ') if (podman_clean_remove_volumes | bool) else 'no (set podman_clean_remove_volumes=true to remove)' }}"

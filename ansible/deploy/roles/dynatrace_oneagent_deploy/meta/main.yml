@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: dynatrace_oneagent_deploy
+  author: workshop-lab
+  description: Deploys Dynatrace OneAgent on RHEL hosts using dynatrace.oneagent role
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+dependencies: []

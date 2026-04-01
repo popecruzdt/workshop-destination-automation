@@ -1,0 +1,35 @@
+{
+  "metadataList": [],
+  "customId": "pipeline_destination-automation-logs_8401",
+  "displayName": "destination-automation-logs",
+  "processing": {
+    "processors": []
+  },
+  "securityContext": {
+    "processors": []
+  },
+  "costAllocation": {
+    "processors": []
+  },
+  "productAllocation": {
+    "processors": []
+  },
+  "storage": {
+    "processors": []
+  },
+  "smartscapeNodeExtraction": {
+    "processors": []
+  },
+  "smartscapeEdgeExtraction": {
+    "processors": []
+  },
+  "metricExtraction": {
+    "processors": []
+  },
+  "davis": {
+    "processors": []
+  },
+  "dataExtraction": {
+    "processors": []
+  }
+}

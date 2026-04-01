@@ -1,0 +1,10 @@
+---
+# =============================================================
+# Clean Site Playbook - Removes app stack and image
+#
+# Usage:
+#   ansible-playbook clean/playbooks/site.yml
+# =============================================================
+
+- import_playbook: remove_app.yml
+- import_playbook: remove_image.yml

@@ -1,0 +1,60 @@
+---
+- name: "dynatrace_app_registry | Check current install state of {{ _dt_app_id }}"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_app_registry_platform_url | regex_replace('/$', '') }}/platform/app-engine/registry/v1/apps/{{ _dt_app_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_app_registry_platform_token }}"
+    validate_certs: "{{ dynatrace_app_registry_validate_certs }}"
+    status_code: [200, 404]
+  register: _dt_app_check_result
+
+- name: "dynatrace_app_registry | Set already-installed fact for {{ _dt_app_id }}"
+  ansible.builtin.set_fact:
+    _dt_app_already_running: "{{ _dt_app_check_result.status == 200 }}"
+
+- name: "dynatrace_app_registry | Install {{ _dt_app_id }}"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_app_registry_platform_url | regex_replace('/$', '') }}/platform/app-engine/registry/v1/apps/{{ _dt_app_id }}:install-bundle"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ dynatrace_app_registry_platform_token }}"
+    validate_certs: "{{ dynatrace_app_registry_validate_certs }}"
+    status_code: [202]
+  register: _dt_app_install_result
+  ignore_errors: true
+  when: not _dt_app_already_running
+
+- name: "dynatrace_app_registry | Poll until {{ _dt_app_id }} installation completes"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_app_registry_platform_url | regex_replace('/$', '') }}/platform/app-engine/registry/v1/apps/{{ _dt_app_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_app_registry_platform_token }}"
+    validate_certs: "{{ dynatrace_app_registry_validate_certs }}"
+    status_code: 200
+  register: _dt_app_poll_result
+  until: _dt_app_poll_result.json.state | default('') in ['RUNNING', 'FAILED']
+  retries: "{{ dynatrace_app_registry_poll_retries }}"
+  delay: "{{ dynatrace_app_registry_poll_delay }}"
+  when: >-
+    not _dt_app_already_running and
+    not (_dt_app_install_result.failed | default(false))
+
+- name: "dynatrace_app_registry | Fail if {{ _dt_app_id }} installation failed at platform"
+  ansible.builtin.fail:
+    msg: "App {{ _dt_app_id }} installation failed. State: {{ _dt_app_poll_result.json.state | default('unknown') }}"
+  ignore_errors: true
+  when: >-
+    not _dt_app_already_running and
+    not (_dt_app_install_result.failed | default(false)) and
+    (_dt_app_poll_result.json.state | default('')) == 'FAILED'
+
+- name: "dynatrace_app_registry | Display {{ _dt_app_id }} install result"
+  ansible.builtin.debug:
+    msg: >-
+      App {{ _dt_app_id }}:
+      {% if _dt_app_already_running %}already installed (state={{ _dt_app_check_result.json.state | default('unknown') }}, skipped)
+      {% elif _dt_app_install_result.failed | default(false) %}install request failed (see error above)
+      {% elif (_dt_app_poll_result.json.state | default('')) == 'FAILED' %}installation failed at platform (see error above)
+      {% else %}installed successfully{% endif %}

@@ -1,0 +1,65 @@
+---
+- name: Increment hub seed monitor attempt
+  ansible.builtin.set_fact:
+    aap_hub_seed_monitor_attempt: "{{ (aap_hub_seed_monitor_attempt | default(0) | int) + 1 }}"
+
+- name: Pause before polling hub seed status
+  ansible.builtin.pause:
+    seconds: "{{ aap_installer_monitor_delay | int }}"
+  when: (aap_hub_seed_monitor_attempt | int) > 1
+
+- name: Check hub seed async job status
+  ansible.builtin.async_status:
+    jid: "{{ aap_hub_seed_async.ansible_job_id }}"
+  register: aap_hub_seed_async_status
+
+- name: Read recent hub seed log lines
+  ansible.builtin.command: >-
+    tail -n {{ aap_installer_log_tail_lines | int }} {{ aap_effective_hub_seed_log_path }}
+  register: aap_hub_seed_log_tail
+  changed_when: false
+  failed_when: false
+
+- name: Show recent hub seed output
+  ansible.builtin.debug:
+    msg: |
+      Automation Hub collection seeding is still running.
+      Log file: {{ aap_effective_hub_seed_log_path }}
+      Recent output:
+      {{ aap_hub_seed_log_tail.stdout | default('(hub seed log is not yet populated)') }}
+  when: not (aap_hub_seed_async_status.finished | bool)
+
+- name: Fail if hub seed monitoring timed out
+  ansible.builtin.fail:
+    msg: >-
+      Automation Hub collection seeding is still running after
+      {{ aap_hub_seed_monitor_attempt }} polls.
+      Check {{ aap_effective_hub_seed_log_path }} for current progress.
+  when:
+    - not (aap_hub_seed_async_status.finished | bool)
+    - (aap_hub_seed_monitor_attempt | int) >= (aap_installer_monitor_retries | int)
+
+- name: Continue monitoring hub seed
+  ansible.builtin.include_tasks: monitor_hub_seed.yml
+  when:
+    - not (aap_hub_seed_async_status.finished | bool)
+    - (aap_hub_seed_monitor_attempt | int) < (aap_installer_monitor_retries | int)
+
+- name: Show final hub seed output snippet
+  ansible.builtin.debug:
+    msg: |
+      Automation Hub collection seeding finished.
+      Log file: {{ aap_effective_hub_seed_log_path }}
+      Final output:
+      {{ aap_hub_seed_log_tail.stdout | default('(hub seed log is empty)') }}
+  when: aap_hub_seed_async_status.finished | bool
+
+- name: Fail when hub seed returned a non-zero code
+  ansible.builtin.fail:
+    msg: >-
+      Automation Hub collection seeding failed with return code
+      {{ aap_hub_seed_async_status.rc | default('unknown') }}.
+      See {{ aap_effective_hub_seed_log_path }} for full details.
+  when:
+    - aap_hub_seed_async_status.finished | bool
+    - (aap_hub_seed_async_status.rc | default(1) | int) != 0

@@ -1,0 +1,204 @@
+---
+- name: "app_ai_runtime_config | Determine requested change flags"
+  ansible.builtin.set_fact:
+    app_ai_model_change_requested: "{{ (app_ai_model_requested | default('', true) | length) > 0 }}"
+    app_ai_temperature_change_requested: "{{ (app_ai_temperature_requested | string | length) > 0 }}"
+    app_ai_rag_change_requested: "{{ (app_ai_rag_instructions_content | default('', true) | length) > 0 }}"
+
+- name: "app_ai_runtime_config | End gracefully when no change variables are provided"
+  when: not (app_ai_model_change_requested or app_ai_temperature_change_requested or app_ai_rag_change_requested)
+  block:
+    - name: "app_ai_runtime_config | No-op message"
+      ansible.builtin.debug:
+        msg:
+          - "No AI runtime changes requested."
+          - "Nothing to update because app_ai_model_requested, app_ai_temperature_requested, and app_ai_rag_instructions_content are all unset/empty."
+    - name: "app_ai_runtime_config | Stop execution for this host"
+      ansible.builtin.meta: end_host
+
+- name: "app_ai_runtime_config | Evaluate requested model support"
+  ansible.builtin.set_fact:
+    app_ai_model_supported: "{{ (not app_ai_model_change_requested) or (app_ai_model_requested in app_ai_supported_models) }}"
+
+- name: "app_ai_runtime_config | End gracefully when requested model is unsupported"
+  when: not app_ai_model_supported
+  block:
+    - name: "app_ai_runtime_config | Unsupported model message"
+      ansible.builtin.debug:
+        msg:
+          - "Requested model '{{ app_ai_model_requested }}' is not supported."
+          - "Supported models: {{ app_ai_supported_models | join(', ') }}"
+    - name: "app_ai_runtime_config | Stop execution for this host"
+      ansible.builtin.meta: end_host
+
+- name: "app_ai_runtime_config | Validate temperature format"
+  ansible.builtin.assert:
+    that:
+      - app_ai_temperature_requested | string is match('^[0-9]+(\\.[0-9]+)?$')
+    fail_msg: "app_ai_temperature_requested must be numeric (for example 0.2 or 1.0)."
+  when: app_ai_temperature_change_requested
+
+- name: "app_ai_runtime_config | Validate temperature range"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_temperature_requested | float) >= app_ai_temperature_min
+      - (app_ai_temperature_requested | float) <= app_ai_temperature_max
+    fail_msg: >-
+      app_ai_temperature_requested must be between {{ app_ai_temperature_min }}
+      and {{ app_ai_temperature_max }}.
+  when: app_ai_temperature_change_requested
+
+- name: "app_ai_runtime_config | Validate multiline RAG instructions"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_rag_instructions_content | trim | length) > 0
+    fail_msg: "app_ai_rag_instructions_content must not be empty when provided."
+  when: app_ai_rag_change_requested
+
+- name: "app_ai_runtime_config | Build deploy vars file path candidates"
+  ansible.builtin.set_fact:
+    app_ai_deploy_vars_file_candidates:
+      - "/opt/ansible/aap/controller/projects/destination-automation/deploy/inventories/localhost/group_vars/all.yml"
+      - "{{ app_ai_deploy_vars_file_path }}"
+      - "{{ playbook_dir | dirname | dirname | dirname }}/deploy/inventories/localhost/group_vars/all.yml"
+      - "{{ playbook_dir | dirname | dirname }}/deploy/inventories/localhost/group_vars/all.yml"
+      - "{{ playbook_dir | dirname }}/deploy/inventories/localhost/group_vars/all.yml"
+      - "{{ playbook_dir }}/deploy/inventories/localhost/group_vars/all.yml"
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Check deploy vars file candidates"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ app_ai_deploy_vars_file_candidates | unique }}"
+  register: app_ai_deploy_vars_candidate_stats
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Select first existing deploy vars file"
+  ansible.builtin.set_fact:
+    app_ai_deploy_vars_file_resolved: >-
+      {{
+        (
+          app_ai_deploy_vars_candidate_stats.results
+          | selectattr('stat.exists', 'equalto', true)
+          | map(attribute='item')
+          | list
+          | first
+        ) | default('')
+      }}
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Fail when deploy vars file is missing"
+  ansible.builtin.assert:
+    that:
+      - app_ai_deploy_vars_file_resolved | length > 0
+    fail_msg: >-
+      Deploy vars file not found. Tried: {{ app_ai_deploy_vars_file_candidates | unique | join(', ') }}
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Read deploy vars file"
+  ansible.builtin.slurp:
+    src: "{{ app_ai_deploy_vars_file_resolved }}"
+  register: app_ai_deploy_vars_before
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Verify deploy vars include travel_advisor_env keys"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_deploy_vars_before.content | b64decode) is search('(?m)^travel_advisor_env:\s*$')
+      - (app_ai_deploy_vars_before.content | b64decode) is search('(?m)^\s{2}AI_MODEL:\s')
+      - (app_ai_deploy_vars_before.content | b64decode) is search('(?m)^\s{2}AI_TEMPERATURE:\s')
+    fail_msg: >-
+      Expected travel_advisor_env with AI_MODEL and AI_TEMPERATURE keys was not found in
+      {{ app_ai_deploy_vars_file_resolved }}.
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Ensure app prompts directory exists"
+  ansible.builtin.file:
+    path: "{{ app_ai_app_config_path }}/prompts"
+    state: directory
+    mode: "0755"
+
+- name: "app_ai_runtime_config | Update AI_MODEL in deploy vars"
+  ansible.builtin.lineinfile:
+    path: "{{ app_ai_deploy_vars_file_resolved }}"
+    regexp: '^\s{2}AI_MODEL:\s'
+    line: '  AI_MODEL: "{{ app_ai_model_requested }}"'
+    mode: "0644"
+  when: app_ai_model_change_requested
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Update AI_TEMPERATURE in deploy vars"
+  ansible.builtin.lineinfile:
+    path: "{{ app_ai_deploy_vars_file_resolved }}"
+    regexp: '^\s{2}AI_TEMPERATURE:\s'
+    line: '  AI_TEMPERATURE: "{{ app_ai_temperature_requested | string }}"'
+    mode: "0644"
+  when: app_ai_temperature_change_requested
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Update multiline RAG instructions file"
+  ansible.builtin.copy:
+    dest: "{{ app_ai_rag_file_path }}"
+    content: "{{ app_ai_rag_instructions_content | regex_replace('\\n?$', '\\n') }}"
+    mode: "0644"
+  when: app_ai_rag_change_requested
+
+- name: "app_ai_runtime_config | Read deploy vars after update"
+  ansible.builtin.slurp:
+    src: "{{ app_ai_deploy_vars_file_resolved }}"
+  register: app_ai_deploy_vars_after
+  when: app_ai_model_change_requested or app_ai_temperature_change_requested
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Assert deploy vars contain expected model"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_deploy_vars_after.content | b64decode) is search('(?m)^\s{2}AI_MODEL:\s"' ~ (app_ai_model_requested | regex_escape()) ~ '"$')
+    fail_msg: "AI_MODEL in {{ app_ai_deploy_vars_file_resolved }} does not match requested value."
+  when:
+    - app_ai_model_change_requested
+    - not ansible_check_mode
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Assert deploy vars contain expected temperature"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_deploy_vars_after.content | b64decode) is search('(?m)^\s{2}AI_TEMPERATURE:\s"' ~ ((app_ai_temperature_requested | string) | regex_escape()) ~ '"$')
+    fail_msg: "AI_TEMPERATURE in {{ app_ai_deploy_vars_file_resolved }} does not match requested value."
+  when:
+    - app_ai_temperature_change_requested
+    - not ansible_check_mode
+  delegate_to: localhost
+  run_once: true
+
+- name: "app_ai_runtime_config | Verify RAG instructions file content"
+  ansible.builtin.slurp:
+    src: "{{ app_ai_rag_file_path }}"
+  register: app_ai_rag_file
+  when: app_ai_rag_change_requested
+
+- name: "app_ai_runtime_config | Assert RAG instructions content applied"
+  ansible.builtin.assert:
+    that:
+      - (app_ai_rag_file.content | b64decode | trim) == (app_ai_rag_instructions_content | trim)
+    fail_msg: "RAG instructions file content does not match requested multiline input."
+  when: app_ai_rag_change_requested
+
+- name: "app_ai_runtime_config | Display change summary"
+  ansible.builtin.debug:
+    msg:
+      - "AI model updated in deploy vars: {{ app_ai_model_change_requested }}"
+      - "AI temperature updated in deploy vars: {{ app_ai_temperature_change_requested }}"
+      - "RAG instructions updated: {{ app_ai_rag_change_requested }}"
+      - "Deploy vars file: {{ app_ai_deploy_vars_file_resolved }}"
+      - "Base dir used: {{ app_ai_base_dir }}"

@@ -1,0 +1,7 @@
+---
+- name: "Deploy Dynatrace EdgeConnect"
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+
+  roles:
+    - role: dynatrace_edgeconnect_deploy

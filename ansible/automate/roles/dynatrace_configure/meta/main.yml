@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: dynatrace_configure
+  author: workshop-lab
+  description: Configures Dynatrace monitoring for the AI Inference App
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+dependencies: []

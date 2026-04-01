@@ -1,0 +1,67 @@
+---
+# build_custom_ee role defaults
+
+# Podman EE naming
+ee_image_name: "destination-automation-podman-ee"
+ee_image_tag: "latest"
+
+# Local build output tag
+ee_output_image: "localhost/{{ ee_image_name }}:{{ ee_image_tag }}"
+
+# Registry and certificate handling
+ee_registry_host: >-
+  {{
+    lookup('ansible.builtin.env', 'EE_REGISTRY_HOST')
+    | default(lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true), true), true)
+  }}
+ee_registry_validate_certs: "{{ (lookup('ansible.builtin.env', 'EE_REGISTRY_VALIDATE_CERTS') | default('false', true)) | bool }}"
+
+# Podman EE base image - creator-ee includes containers.podman out of the box
+ee_base_image: "quay.io/ansible/creator-ee:latest"
+ee_package_manager_path: "/usr/bin/microdnf"
+
+# Local Hub registry details
+ee_registry_username: "{{ lookup('ansible.builtin.env', 'EE_REGISTRY_USERNAME') | default('admin', true) }}"
+ee_registry_password: "{{ lookup('ansible.builtin.env', 'EE_REGISTRY_PASSWORD') | default(lookup('ansible.builtin.env', 'AAP_ADMIN_PASSWORD') | default('', true), true) }}"
+ee_registry_image: "{{ ee_registry_host }}/{{ ee_image_name }}:{{ ee_image_tag }}"
+ee_push_to_registry: "{{ (lookup('ansible.builtin.env', 'EE_PUSH_TO_REGISTRY') | default('true', true)) | bool }}"
+
+# OneAgent EE naming and base image
+ee_oneagent_image_name: "destination-automation-oneagent-ee"
+ee_oneagent_image_tag: "latest"
+ee_oneagent_output_image: "localhost/{{ ee_oneagent_image_name }}:{{ ee_oneagent_image_tag }}"
+ee_oneagent_base_image: "ee-supported-rhel9:2.0"
+ee_oneagent_package_manager_path: "/usr/bin/dnf"
+ee_oneagent_registry_image: "{{ ee_registry_host }}/{{ ee_oneagent_image_name }}:{{ ee_oneagent_image_tag }}"
+
+# Build working directory
+ee_build_work_dir: "/tmp/ee-build-{{ ansible_date_time.iso8601_basic_short }}"
+
+# ansible-builder controls
+# Pinned to stable 3.x release for reproducible builds
+ee_ansible_builder_package: "ansible-builder==3.1.1"
+ee_builder_verbosity: 3
+
+# Collection versions / profile definitions
+ee_podman_collection_version: "1.15.0"
+ee_oneagent_collection_version: ">=1.6.0"
+
+ee_build_profiles:
+  - key: "podman"
+    name: "{{ ee_image_name }}"
+    description: "Custom EE with containers.podman collection (creator-ee base)"
+    output_image: "{{ ee_output_image }}"
+    registry_image: "{{ ee_registry_image }}"
+    base_image: "{{ ee_base_image }}"
+    package_manager_path: "{{ ee_package_manager_path }}"
+    collections: []
+  - key: "oneagent"
+    name: "{{ ee_oneagent_image_name }}"
+    description: "Custom EE with dynatrace.oneagent collection (ee-supported-rhel9 base)"
+    output_image: "{{ ee_oneagent_output_image }}"
+    registry_image: "{{ ee_oneagent_registry_image }}"
+    base_image: "{{ ee_oneagent_base_image }}"
+    package_manager_path: "{{ ee_oneagent_package_manager_path }}"
+    collections:
+      - name: "dynatrace.oneagent"
+        version: "{{ ee_oneagent_collection_version }}"

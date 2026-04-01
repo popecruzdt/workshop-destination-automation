@@ -1,0 +1,24 @@
+---
+# app_ai_runtime_config role defaults
+
+app_ai_model_requested: ""
+app_ai_temperature_requested: ""
+app_ai_rag_instructions_content: ""
+
+app_ai_temperature_min: 0.0
+app_ai_temperature_max: 2.0
+
+app_ai_supported_models:
+  - "qwen2.5:0.5b-instruct-q4_K_M"
+  - "llama3.2:1b-instruct-q4_K_M"
+  - "gemma3:1b-it-qat"
+  - "orca-mini:3b"
+
+# Runtime paths
+app_ai_base_dir: "{{ destination_automation_base_dir | default('/home/aap-service-account/destination-automation', true) }}"
+app_ai_app_config_path: "{{ app_config_path | default(app_ai_base_dir ~ '/app', true) }}"
+app_ai_rag_file_path: "{{ app_ai_app_config_path }}/prompts/rag_instructions.txt"
+
+# Deploy configuration source of truth for model/temperature values.
+# deploy/roles/podman_deploy uses travel_advisor_env from this file.
+app_ai_deploy_vars_file_path: "{{ (playbook_dir | dirname | dirname) ~ '/deploy/inventories/localhost/group_vars/all.yml' }}"

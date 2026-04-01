@@ -1,0 +1,15 @@
+---
+# WARNING: This playbook requires an already-installed AAP containerized instance.
+# Do NOT run this playbook before running the install_aap_containerized playbook.
+# It is meant to be executed AFTER AAP installation completes successfully.
+#
+- name: Seed bundled Automation Hub collections after AAP install
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Run bundled Automation Hub collection seeding only
+      ansible.builtin.import_role:
+        name: aap_containerized_install
+        tasks_from: seed_hub.yml

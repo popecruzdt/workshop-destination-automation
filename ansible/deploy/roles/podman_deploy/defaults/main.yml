@@ -1,0 +1,63 @@
+---
+# podman_deploy role - defaults
+
+# Application configuration path (contains Dockerfile, config files, etc.)
+app_config_path: "{{ (destination_automation_base_dir | default((playbook_dir | dirname | dirname | dirname), true)) ~ '/app' }}"
+
+# Enforced AI runtime defaults for every deploy.
+# These values override previously customized runtime settings.
+podman_deploy_enforce_ai_defaults: true
+podman_deploy_default_ai_model: "qwen2.5:0.5b-instruct-q4_K_M"
+podman_deploy_default_ai_temperature: "0.7"
+podman_deploy_default_rag_prompt_path: "prompts/rag_instructions.txt"
+podman_deploy_default_rag_instructions: |
+  You are a helpful travel advisor assistant. Use ONLY the information provided in the context below to answer questions about travel destinations.
+
+  CRITICAL INSTRUCTIONS:
+  - Use ONLY the facts from the context provided below
+  - Do NOT use any external knowledge or information you may have
+  - If the context contains information about the location, use it exactly as written
+  - If the context does not contain relevant information, say "I don't have information about that destination"
+  - Keep your response concise and helpful, maximum 50 words
+  - Emphasize any information you have about Dynatrace or Red Hat
+  - Do not include any emojis, markdown, or formatting in your response
+
+  <context>
+  {context}
+  </context>
+
+  Question: {destination}
+
+  Travel Advice:
+
+# Restart policy for the container
+podman_deploy_restart_policy: "unless-stopped"
+
+# Resource limits
+podman_deploy_memory_limit: "512m"
+podman_deploy_cpu_limit: "1.0"
+
+# Logging driver
+podman_deploy_log_driver: "journald"
+podman_deploy_log_opts:
+  tag: "{{ app_name }}"
+
+# Volume mounts (list of "host:container[:options]" strings)
+podman_deploy_volumes: []
+
+# Additional capabilities to add
+podman_deploy_cap_add: []
+
+# Security options
+podman_deploy_security_opts: []
+
+# OpenTelemetry Collector: use custom-otel-collector-config.yaml verbatim (suppresses Dynatrace export)
+otel_collector_custom_config: false
+
+# OpenTelemetry Collector: export telemetry to Dynatrace via OTLP (requires endpoint + token)
+otel_collector_dynatrace_export: false
+otel_collector_dynatrace_export_traces: true
+otel_collector_dynatrace_export_metrics: true
+otel_collector_dynatrace_export_logs: true
+otel_collector_dynatrace_endpoint: "{{ lookup('ansible.builtin.env', 'DT_OTLP_ENDPOINT') | default('https://example.live.dynatrace.com', true) }}"
+otel_collector_dynatrace_token: "{{ lookup('ansible.builtin.env', 'DT_OTLP_TOKEN') | default('REPLACE_ME', true) }}"

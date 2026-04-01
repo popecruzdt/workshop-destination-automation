@@ -1,0 +1,8 @@
+---
+- name: Build generated inventory file for installer
+  ansible.builtin.template:
+    src: inventory-containerized.j2
+    dest: "{{ aap_inventory_output_path }}"
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0600"

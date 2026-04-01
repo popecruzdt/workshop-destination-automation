@@ -1,0 +1,48 @@
+---
+# Deploy Dynatrace OneAgent using dynatrace.oneagent collection role
+
+- name: "dynatrace_oneagent_deploy | Validate direct download configuration"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_oneagent_environment_url | length > 0
+      - dynatrace_oneagent_paas_token | length > 0
+    fail_msg: >-
+      DYNATRACE_ENV_URL and DYNATRACE_PAAS_TOKEN must be set for direct
+      download from Dynatrace environment.
+
+- name: "dynatrace_oneagent_deploy | Validate version mode"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_oneagent_version_mode in ['latest', 'pinned']
+      - (dynatrace_oneagent_version_mode != 'pinned') or (dynatrace_oneagent_pinned_version | length > 0)
+    fail_msg: >-
+      Set dynatrace_oneagent_version_mode to latest or pinned.
+      If pinned, set dynatrace_oneagent_pinned_version.
+
+- name: "dynatrace_oneagent_deploy | Resolve OneAgent version"
+  ansible.builtin.set_fact:
+    dynatrace_oneagent_effective_version: "{{ 'latest' if dynatrace_oneagent_version_mode == 'latest' else dynatrace_oneagent_pinned_version }}"
+
+- name: "dynatrace_oneagent_deploy | Display deployment configuration"
+  ansible.builtin.debug:
+    msg:
+      - "Dynatrace environment URL: {{ dynatrace_oneagent_environment_url }}"
+      - "OneAgent version mode: {{ dynatrace_oneagent_version_mode }}"
+      - "OneAgent version: {{ dynatrace_oneagent_effective_version }}"
+      - "OneAgent host group: {{ dynatrace_oneagent_host_group }}"
+      - "Installer architecture: {{ dynatrace_oneagent_installer_arch }}"
+
+- name: "dynatrace_oneagent_deploy | Deploy OneAgent via dynatrace.oneagent role"
+  ansible.builtin.include_role:
+    name: dynatrace.oneagent.oneagent
+  vars:
+    oneagent_environment_url: "{{ dynatrace_oneagent_environment_url }}"
+    oneagent_paas_token: "{{ dynatrace_oneagent_paas_token }}"
+    oneagent_validate_certs: "{{ dynatrace_oneagent_validate_certs }}"
+    oneagent_version: "{{ dynatrace_oneagent_effective_version }}"
+    oneagent_installer_arch: "{{ dynatrace_oneagent_installer_arch }}"
+    oneagent_download_dir: "{{ dynatrace_oneagent_download_dir }}"
+    oneagent_package_state: "{{ dynatrace_oneagent_package_state }}"
+    oneagent_install_args: "{{ dynatrace_oneagent_install_args }}"
+    oneagent_platform_install_args: "{{ dynatrace_oneagent_platform_install_args }}"
+  no_log: true

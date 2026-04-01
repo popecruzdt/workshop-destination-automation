@@ -1,0 +1,211 @@
+{
+  "metadataList": [],
+  "customId": "pipeline_destination-automation_5356",
+  "displayName": "destination-automation",
+  "processing": {
+    "processors": [
+      {
+        "id": "processor_Gen_AI_System_7039",
+        "type": "dql",
+        "matcher": "isNotNull(gen_ai.system)",
+        "description": "Gen AI System",
+        "enabled": true,
+        "dql": {
+          "script": "fieldsAdd gen_ai.system = lower(gen_ai.system)"
+        }
+      },
+      {
+        "id": "processor_Gen_AI_Temperature_7040",
+        "type": "dql",
+        "matcher": "isNotNull(traceloop.association.properties.ls_temperature)",
+        "description": "Gen AI Temperature",
+        "enabled": true,
+        "dql": {
+          "script": "fieldsAdd gen_ai.request.temperature = traceloop.association.properties.ls_temperature"
+        }
+      }
+    ]
+  },
+  "securityContext": {
+    "processors": []
+  },
+  "costAllocation": {
+    "processors": []
+  },
+  "productAllocation": {
+    "processors": []
+  },
+  "storage": {
+    "processors": []
+  },
+  "smartscapeNodeExtraction": {
+    "processors": []
+  },
+  "smartscapeEdgeExtraction": {
+    "processors": []
+  },
+  "metricExtraction": {
+    "processors": [
+      {
+        "id": "processor_Input_gen_ai.client.token.usage_6625",
+        "type": "samplingAwareValueMetric",
+        "matcher": "isNotNull(gen_ai.usage.input_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
+        "description": "Input gen_ai.client.token.usage",
+        "enabled": true,
+        "samplingAwareValueMetric": {
+          "metricKey": "gen_ai.client.token.usage",
+          "field": "gen_ai.usage.input_tokens",
+          "defaultValue": "0",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.token.type",
+              "destinationFieldName": "gen_ai.token.type",
+              "defaultValue": "input"
+            }
+          ],
+          "sampling": "disabled",
+          "aggregation": "disabled",
+          "measurement": "field"
+        }
+      },
+      {
+        "id": "processor_Output_gen_ai.client.token.usage_4433",
+        "type": "samplingAwareValueMetric",
+        "matcher": "isNotNull(gen_ai.usage.output_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
+        "description": "Output gen_ai.client.token.usage",
+        "enabled": true,
+        "samplingAwareValueMetric": {
+          "metricKey": "gen_ai.client.token.usage",
+          "field": "gen_ai.usage.output_tokens",
+          "defaultValue": "0",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.token.type",
+              "destinationFieldName": "gen_ai.token.type",
+              "defaultValue": "output"
+            }
+          ],
+          "sampling": "disabled",
+          "aggregation": "disabled",
+          "measurement": "field"
+        }
+      },
+      {
+        "id": "processor_gen_ai.client.operation.duration_6725",
+        "type": "samplingAwareValueMetric",
+        "matcher": "matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
+        "description": "gen_ai.client.operation.duration",
+        "enabled": true,
+        "samplingAwareValueMetric": {
+          "metricKey": "gen_ai.client.operation.duration",
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            }
+          ],
+          "sampling": "enabled",
+          "aggregation": "enabled",
+          "measurement": "duration"
+        }
+      }
+    ]
+  },
+  "davis": {
+    "processors": []
+  },
+  "dataExtraction": {
+    "processors": [
+      {
+        "id": "processor_Gen_AI_-_Ollama_9105",
+        "type": "bizevent",
+        "matcher": "matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
+        "description": "Gen AI - Ollama",
+        "enabled": true,
+        "bizevent": {
+          "eventType": {
+            "type": "constant",
+            "constant": "gen_ai.llm"
+          },
+          "eventProvider": {
+            "type": "constant",
+            "constant": "openllmetry.ollama"
+          },
+          "fieldExtraction": {
+            "type": "includeAll"
+          }
+        }
+      },
+      {
+        "id": "processor_Gen_AI_-_Weaviate_4800",
+        "type": "bizevent",
+        "matcher": "matchesValue(db.system,\"weaviate\") and isNotNull(weaviate.collection)",
+        "description": "Gen AI - Weaviate",
+        "enabled": true,
+        "bizevent": {
+          "eventType": {
+            "type": "constant",
+            "constant": "gen_ai.vectordb"
+          },
+          "eventProvider": {
+            "type": "constant",
+            "constant": "openllmetry.weaviate"
+          },
+          "fieldExtraction": {
+            "type": "includeAll"
+          }
+        }
+      }
+    ]
+  }
+}

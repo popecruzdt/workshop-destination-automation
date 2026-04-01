@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  role_name: aap_config
+  author: workshop-lab
+  description: Configure AAP controller objects for destination-automation workshops
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions: ["9"]
+dependencies: []

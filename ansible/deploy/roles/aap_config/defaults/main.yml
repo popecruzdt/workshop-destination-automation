@@ -1,0 +1,742 @@
+---
+# Mode:
+# - local: AAP and workshop assets on same host. Role copies local ansible dir
+#          into AAP local projects directory and creates a local/manual project.
+# - external: AAP is remote (API access only). Role creates git-backed project.
+aap_deploy_mode: "local"
+
+# AAP API connection
+aap_controller_host: >-
+  {{
+    lookup('ansible.builtin.env', 'AAP_CONTROLLER_HOST')
+    | default('https://' + (lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true)), true)
+  }}
+aap_controller_api_prefix: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_API_PREFIX') | default('/api/controller/', true) }}"
+aap_controller_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
+aap_controller_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') | default(lookup('ansible.builtin.env', 'AAP_ADMIN_PASSWORD') | default('', true), true) }}"
+aap_controller_validate_certs: false
+
+# AAP UI session timeout in seconds.
+# Default is 1800 (30 minutes). Set to a higher value to reduce re-login frequency.
+# Example: 28800 = 8 hours, 86400 = 24 hours.
+aap_session_cookie_age: 28800
+
+# Organization
+aap_org_name: "destination-automation"
+aap_org_description: "Destination Automation workshop organization"
+aap_galaxy_credential_name: "Ansible Galaxy"
+
+# Custom Execution Environment
+aap_custom_ee_name: "destination-automation-podman-ee"
+aap_custom_ee_description: "Custom EE with containers.podman collection (creator-ee base)"
+aap_custom_ee_registry_host: >-
+  {{
+    lookup('ansible.builtin.env', 'EE_REGISTRY_HOST')
+    | default(lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true), true), true)
+  }}
+aap_custom_ee_image: "{{ aap_custom_ee_registry_host }}/destination-automation-podman-ee:latest"
+aap_oneagent_ee_name: "destination-automation-oneagent-ee"
+aap_oneagent_ee_description: "Custom EE with dynatrace.oneagent collection (ee-supported-rhel9 base)"
+aap_oneagent_ee_image: "{{ aap_custom_ee_registry_host }}/destination-automation-oneagent-ee:latest"
+
+# Users
+aap_instructor_username: "instructor"
+aap_instructor_password: "{{ lookup('ansible.builtin.env', 'AAP_INSTRUCTOR_PASSWORD') | default('', true) }}"
+aap_instructor_email: "instructor@example.com"
+
+# Participants are generated as participant1..participantN.
+aap_participant_count: "{{ (lookup('ansible.builtin.env', 'AAP_PARTICIPANT_COUNT') | default('1', true)) | int }}"
+aap_participant_username_prefix: "participant"
+aap_participant_username: "participant1"
+aap_participant_password: "{{ lookup('ansible.builtin.env', 'AAP_PARTICIPANT_PASSWORD') | default('', true) }}"
+aap_participant_email: "participant1@example.com"
+
+aap_eda_service_account_username: "destination-automation-eda-service-account"
+aap_eda_service_account_password: "{{ lookup('ansible.builtin.env', 'AAP_EDA_SERVICE_ACCOUNT_PASSWORD') | default('', true) }}"
+aap_eda_service_account_email: "eda-service-account@example.com"
+
+# Teams
+aap_instructors_team_name: "destination-automation-instructors"
+aap_participants_team_name: "destination-automation-participants"
+
+# Login password generation fallback (used when env/password vars are unset)
+aap_password_store_dir: "/tmp/dev-destination-automation-passwords"
+aap_instructor_password_store_file: "{{ aap_password_store_dir }}/aap_instructor_password"
+aap_eda_service_account_password_store_file: "{{ aap_password_store_dir }}/aap_eda_service_account_password"
+
+# Project
+aap_project_name: "destination-automation"
+aap_project_description: "Workshop automation project"
+
+# local mode project settings
+aap_local_projects_root: "{{ lookup('ansible.builtin.env', 'AAP_LOCAL_PROJECTS_ROOT') | default('/opt/ansible/aap/controller/projects', true) }}"
+aap_local_project_path_name: "destination-automation"
+aap_local_project_owner: "{{ lookup('ansible.builtin.env', 'AAP_INSTALL_USER') | default(ansible_user_id, true) }}"
+aap_local_project_group: "{{ aap_local_project_owner }}"
+aap_local_ansible_source_dir: "{{ (playbook_dir | dirname | dirname) }}"
+aap_local_app_source_dir: "{{ aap_local_ansible_source_dir | dirname }}/app"
+aap_local_dynatrace_config_source_dir: "{{ aap_local_ansible_source_dir | dirname }}/dynatrace/config"
+aap_runtime_destination_automation_base_dir: "/home/{{ aap_machine_credential_username }}/destination-automation"
+
+# external mode project settings
+aap_external_project_scm_type: "git"
+aap_external_project_scm_url: "{{ lookup('ansible.builtin.env', 'AAP_PROJECT_SCM_URL') | default('', true) }}"
+aap_external_project_scm_branch: "{{ lookup('ansible.builtin.env', 'AAP_PROJECT_SCM_BRANCH') | default('main', true) }}"
+aap_external_project_scm_credential: "{{ lookup('ansible.builtin.env', 'AAP_PROJECT_SCM_CREDENTIAL') | default('', true) }}"
+
+# Inventory
+aap_inventory_name: "destination-automation"
+aap_inventory_description: "Workshop inventory"
+# Inventory group for workshop hosts
+aap_workshop_group_name: "workshop"
+aap_workshop_group_description: "Workshop execution targets"
+# local mode inventory host
+aap_local_private_hostname: >-
+  {{
+    lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME')
+    | default(ansible_fqdn | default(ansible_hostname, true), true)
+  }}
+aap_local_inventory_host_name: "{{ lookup('ansible.builtin.env', 'AAP_LOCAL_INVENTORY_HOST_NAME') | default(aap_local_private_hostname, true) }}"
+aap_local_inventory_host_vars:
+  ansible_host: "{{ aap_local_private_hostname }}"
+  ansible_user: "{{ lookup('ansible.builtin.env', 'AAP_LOCAL_INVENTORY_ANSIBLE_USER') | default(aap_machine_credential_username, true) }}"
+  destination_automation_base_dir: "{{ aap_runtime_destination_automation_base_dir }}"
+
+# external mode inventory hosts (optional)
+# Example:
+# aap_external_inventory_hosts:
+#   - name: target1.example.com
+#     description: Primary workshop target
+#     variables: |
+#       ansible_host: 10.0.1.10
+#       ansible_user: ec2-user
+aap_external_inventory_hosts: []
+
+# Machine credential for SSH-based job execution
+aap_machine_credential_name: "aap-service-account"
+aap_machine_credential_description: "Service account for AAP job execution"
+aap_machine_credential_username: "aap-service-account"
+aap_machine_credential_overwrite: false
+aap_machine_credential_ssh_key: "{{ lookup('ansible.builtin.env', 'AAP_MACHINE_CREDENTIAL_SSH_KEY') | default(aap_machine_credential_ssh_key_placeholder, true) }}"
+aap_machine_credential_ssh_key_unlock: "{{ lookup('ansible.builtin.env', 'AAP_MACHINE_CREDENTIAL_SSH_KEY_UNLOCK') | default('', true) }}"
+aap_machine_credential_ssh_key_placeholder: "REPLACE_ME"
+
+# Dynatrace Monaco custom credential type and credential
+aap_dynatrace_monaco_credential_type_name: "Dynatrace Monaco Platform Token"
+aap_dynatrace_monaco_credential_type_description: "Injects Dynatrace Monaco platform URL and platform token as environment variables"
+aap_dynatrace_monaco_credential_type_kind: "cloud"
+aap_dynatrace_monaco_credential_type_inputs:
+  fields:
+    - id: dt_platform_url
+      type: string
+      label: Dynatrace Platform URL
+      help_text: Dynatrace platform URL, for example https://abc123.apps.dynatrace.com
+    - id: dt_platform_token
+      type: string
+      label: Dynatrace Platform Token
+      secret: true
+      help_text: Dynatrace platform token used by Monaco during deployment
+  required:
+    - dt_platform_url
+    - dt_platform_token
+aap_dynatrace_monaco_credential_type_injectors:
+  env:
+    DT_PLATFORM_URL: !unsafe "{{ dt_platform_url }}"
+    DT_PLATFORM_TOKEN: !unsafe "{{ dt_platform_token }}"
+
+aap_dynatrace_monaco_credential_name: "destination-automation-dynatrace-monaco"
+aap_dynatrace_monaco_credential_description: "Dynatrace Monaco platform credential for destination-automation"
+aap_dynatrace_monaco_credential_overwrite: false
+aap_dynatrace_monaco_platform_url: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_URL') | default('https://example.apps.dynatrace.com', true) }}"
+aap_dynatrace_monaco_platform_token: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_TOKEN') | default('REPLACE_ME', true) }}"
+
+# Dynatrace OTLP custom credential type and credential
+aap_dynatrace_otlp_credential_type_name: "Dynatrace OTLP Token"
+aap_dynatrace_otlp_credential_type_description: "Injects Dynatrace OTLP endpoint and API token as environment variables for otel-collector configuration"
+aap_dynatrace_otlp_credential_type_kind: "cloud"
+aap_dynatrace_otlp_credential_type_inputs:
+  fields:
+    - id: dt_otlp_endpoint
+      type: string
+      label: Dynatrace OTLP Endpoint
+      help_text: Dynatrace OTLP endpoint URL, for example https://abc123.live.dynatrace.com/api/v2/otlp
+    - id: dt_otlp_token
+      type: string
+      label: Dynatrace OTLP API Token
+      secret: true
+      help_text: Dynatrace API token with metrics.ingest and/or openTelemetryTrace.ingest scope
+  required:
+    - dt_otlp_endpoint
+    - dt_otlp_token
+aap_dynatrace_otlp_credential_type_injectors:
+  env:
+    DT_OTLP_ENDPOINT: !unsafe "{{ dt_otlp_endpoint }}"
+    DT_OTLP_TOKEN: !unsafe "{{ dt_otlp_token }}"
+
+aap_dynatrace_otlp_credential_name: "destination-automation-dynatrace-otlp"
+aap_dynatrace_otlp_credential_description: "Dynatrace OTLP credential for destination-automation otel-collector export"
+aap_dynatrace_otlp_credential_overwrite: false
+aap_dynatrace_otlp_endpoint: "{{ lookup('ansible.builtin.env', 'DT_OTLP_ENDPOINT') | default('https://example.live.dynatrace.com/api/v2/otlp', true) }}"
+aap_dynatrace_otlp_token: "{{ lookup('ansible.builtin.env', 'DT_OTLP_TOKEN') | default('REPLACE_ME', true) }}"
+
+# Dynatrace OAuth Client custom credential type and credential
+aap_dynatrace_oauth_credential_type_name: "Dynatrace OAuth Client"
+aap_dynatrace_oauth_credential_type_description: "Injects Dynatrace OAuth client credentials as environment variables"
+aap_dynatrace_oauth_credential_type_kind: "cloud"
+aap_dynatrace_oauth_credential_type_inputs:
+  fields:
+    - id: dt_oauth_client_id
+      type: string
+      label: Dynatrace OAuth Client ID
+      help_text: Dynatrace OAuth client ID (urn:dtaccount:...)
+    - id: dt_oauth_client_secret
+      type: string
+      label: Dynatrace OAuth Client Secret
+      secret: true
+      help_text: Dynatrace OAuth client secret
+    - id: dt_oauth_account_urn
+      type: string
+      label: Dynatrace OAuth Account URN
+      help_text: Dynatrace account URN (urn:dtaccount:...)
+  required:
+    - dt_oauth_client_id
+    - dt_oauth_client_secret
+    - dt_oauth_account_urn
+aap_dynatrace_oauth_credential_type_injectors:
+  env:
+    DT_OAUTH_CLIENT_ID: !unsafe "{{ dt_oauth_client_id }}"
+    DT_OAUTH_CLIENT_SECRET: !unsafe "{{ dt_oauth_client_secret }}"
+    DT_OAUTH_ACCOUNT_URN: !unsafe "{{ dt_oauth_account_urn }}"
+
+aap_dynatrace_oauth_credential_name: "destination-automation-dynatrace-oauth"
+aap_dynatrace_oauth_credential_description: "Dynatrace OAuth client credential for EdgeConnect deployment"
+aap_dynatrace_oauth_credential_overwrite: false
+aap_dynatrace_oauth_client_id: "{{ lookup('ansible.builtin.env', 'DT_OAUTH_CLIENT_ID') | default('REPLACE_ME', true) }}"
+aap_dynatrace_oauth_client_secret: "{{ lookup('ansible.builtin.env', 'DT_OAUTH_CLIENT_SECRET') | default('REPLACE_ME', true) }}"
+aap_dynatrace_oauth_account_urn: "{{ lookup('ansible.builtin.env', 'DT_OAUTH_ACCOUNT_URN') | default('REPLACE_ME', true) }}"
+
+# Dynatrace OneAgent PaaS custom credential type and credential
+aap_dynatrace_oneagent_credential_type_name: "Dynatrace OneAgent PaaS Token"
+aap_dynatrace_oneagent_credential_type_description: "Injects Dynatrace OneAgent environment URL and PaaS installer token as environment variables"
+aap_dynatrace_oneagent_credential_type_kind: "cloud"
+aap_dynatrace_oneagent_credential_type_inputs:
+  fields:
+    - id: oneagent_environment_url
+      type: string
+      label: Dynatrace OneAgent Environment URL
+      help_text: Dynatrace environment URL, for example https://your-environment.live.dynatrace.com
+    - id: oneagent_paas_token
+      type: string
+      label: Dynatrace OneAgent PaaS Token
+      secret: true
+      help_text: Dynatrace PaaS installer token used to download and install OneAgent
+  required:
+    - oneagent_environment_url
+    - oneagent_paas_token
+aap_dynatrace_oneagent_credential_type_injectors:
+  env:
+    oneagent_environment_url: !unsafe "{{ oneagent_environment_url }}"
+    oneagent_paas_token: !unsafe "{{ oneagent_paas_token }}"
+
+aap_dynatrace_oneagent_credential_name: "destination-automation-dynatrace-oneagent"
+aap_dynatrace_oneagent_credential_description: "Dynatrace OneAgent environment URL and PaaS token for destination-automation"
+aap_dynatrace_oneagent_credential_overwrite: false
+aap_dynatrace_oneagent_environment_url: "https://your-environment.live.dynatrace.com"
+aap_dynatrace_oneagent_paas_token: "abcdefjhij1234567890"
+
+# Job template categorization labels
+aap_healthcheck_domain_label: "healthcheck"
+aap_readiness_label: "readiness"
+aap_test_job_template_labels:
+  - "{{ aap_healthcheck_domain_label }}"
+  - "{{ aap_readiness_label }}"
+aap_app_label: "app"
+aap_deploy_label: "deploy"
+aap_dynatrace_label: "dynatrace"
+aap_automate_label: "automate"
+aap_clean_label: "clean"
+aap_podman_label: "podman"
+aap_operate_label: "operate"
+aap_remediate_label: "remediate"
+aap_app_deploy_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_deploy_label }}"
+  - "{{ aap_podman_label }}"
+aap_dynatrace_deploy_job_template_labels:
+  - "{{ aap_deploy_label }}"
+  - "{{ aap_dynatrace_label }}"
+aap_dynatrace_podman_deploy_job_template_labels:
+  - "{{ aap_deploy_label }}"
+  - "{{ aap_dynatrace_label }}"
+  - "{{ aap_podman_label }}"
+aap_app_clean_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_clean_label }}"
+  - "{{ aap_podman_label }}"
+aap_app_operate_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_operate_label }}"
+  - "{{ aap_podman_label }}"
+aap_app_automate_job_template_labels:
+  - "{{ aap_automate_label }}"
+  - "{{ aap_app_label }}"
+  - "{{ aap_podman_label }}"
+aap_app_automate_openfeature_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_automate_label }}"
+aap_app_remediate_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_remediate_label }}"
+
+# Job template for workshop validation
+aap_test_job_template_name: "destination-automation-node-readiness"
+aap_test_job_template_description: "Reports node OS, podman version, and become capability"
+aap_test_job_template_playbook: "deploy/playbooks/test_node_readiness.yml"
+aap_test_job_template_limit: ""
+aap_test_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_test_job_template_become_enabled: false
+
+# Common target override for playbooks that default to localhost
+# In local mode, targets the workshop group for easy host changes
+# In external mode, targets all (when using groups, administrators update group membership)
+aap_job_template_target_hosts: "{{ aap_workshop_group_name if aap_deploy_mode == 'local' else 'all' }}"
+aap_dynatrace_target_group_name: "destination-automation"
+aap_destination_automation_base_dir: "{{ lookup('ansible.builtin.env', 'AAP_DESTINATION_AUTOMATION_BASE_DIR') | default('/home/ec2-user/apps/dev-destination-automation', true) }}"
+aap_grant_service_account_source_access: true
+aap_source_access_home_dir: "/home/ec2-user"
+
+# Job template for image build
+aap_build_images_job_template_name: "destination-automation-build-images"
+aap_build_images_job_template_description: "Builds easyTravel container images"
+aap_build_images_job_template_playbook: "deploy/playbooks/build_images.yml"
+aap_build_images_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_build_images_job_template_become_enabled: false
+aap_build_images_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app deployment
+aap_deploy_app_job_template_name: "destination-automation-deploy-app"
+aap_deploy_app_job_template_description: "Deploys easyTravel application stack"
+aap_deploy_app_job_template_playbook: "deploy/playbooks/deploy_app.yml"
+aap_deploy_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_deploy_app_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_otlp_credential_name }}"
+aap_deploy_app_job_template_become_enabled: false
+aap_deploy_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  # Dynatrace OTLP export: enable export from otel-collector to Dynatrace
+  # Credentials (DT_OTLP_ENDPOINT, DT_OTLP_TOKEN) are injected by the Dynatrace OTLP credential
+  otel_collector_dynatrace_export: true
+  # Signal switches: control which signals are exported to Dynatrace (default all true in role)
+  otel_collector_dynatrace_export_traces: false
+  otel_collector_dynatrace_export_metrics: true
+  otel_collector_dynatrace_export_logs: false
+
+# Job templates for cleanup
+aap_clean_remove_app_job_template_name: "destination-automation-clean-remove-app"
+aap_clean_remove_app_job_template_description: "Removes easyTravel app stack containers and network"
+aap_clean_remove_app_job_template_playbook: "clean/playbooks/remove_app.yml"
+aap_clean_remove_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_clean_remove_app_job_template_become_enabled: false
+aap_clean_remove_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+aap_clean_remove_image_job_template_name: "destination-automation-clean-remove-image"
+aap_clean_remove_image_job_template_description: "Removes easyTravel application image"
+aap_clean_remove_image_job_template_playbook: "clean/playbooks/remove_image.yml"
+aap_clean_remove_image_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_clean_remove_image_job_template_become_enabled: false
+aap_clean_remove_image_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for Dynatrace OneAgent deployment
+aap_deploy_dynatrace_oneagent_job_template_name: "destination-automation-deploy-dynatrace-oneagent"
+aap_deploy_dynatrace_oneagent_job_template_description: "Deploy Dynatrace OneAgent on RHEL 9 x86 hosts"
+aap_deploy_dynatrace_oneagent_job_template_playbook: "deploy/playbooks/deploy_dynatrace_oneagent.yml"
+aap_deploy_dynatrace_oneagent_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_oneagent_credential_name }}"
+aap_deploy_dynatrace_oneagent_job_template_become_enabled: true
+aap_deploy_dynatrace_oneagent_job_template_extra_vars:
+  target_hosts: "{{ aap_dynatrace_target_group_name }}"
+
+# Job template for Dynatrace Monaco configuration deployment
+aap_deploy_dynatrace_monaco_job_template_name: "destination-automation-deploy-dynatrace-monaco"
+aap_deploy_dynatrace_monaco_job_template_description: "Deploy Dynatrace Monaco project configuration"
+aap_deploy_dynatrace_monaco_job_template_playbook: "deploy/playbooks/deploy_dynatrace_monaco.yml"
+aap_deploy_dynatrace_monaco_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_monaco_credential_name }}"
+aap_deploy_dynatrace_monaco_job_template_become_enabled: false
+aap_deploy_dynatrace_monaco_job_template_extra_vars:
+  target_hosts: "{{ aap_workshop_group_name }}"
+
+# Job template for Dynatrace App Registry (install AppEngine apps)
+aap_deploy_dynatrace_apps_job_template_name: "destination-automation-deploy-dynatrace-apps"
+aap_deploy_dynatrace_apps_job_template_description: "Install Dynatrace AppEngine apps via platform App Registry API"
+aap_deploy_dynatrace_apps_job_template_playbook: "deploy/playbooks/deploy_dynatrace_apps.yml"
+aap_deploy_dynatrace_apps_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_monaco_credential_name }}"
+aap_deploy_dynatrace_apps_job_template_become_enabled: false
+aap_deploy_dynatrace_apps_job_template_extra_vars:
+  target_hosts: "{{ aap_workshop_group_name }}"
+  dynatrace_app_registry_apps:
+    - "dynatrace.genai.observability"
+    - "dynatrace.redhat.ansible"
+    - "dynatrace.servicenow"
+    - "dynatrace.davis.copilot.workflow.actions"
+    - "dynatrace.email"
+    - "dynatrace.slack"
+
+# Job template for Dynatrace API config (Settings API operations)
+aap_deploy_dynatrace_api_config_job_template_name: "destination-automation-deploy-dynatrace-api-config"
+aap_deploy_dynatrace_api_config_job_template_description: "Configure Dynatrace settings via Settings API"
+aap_deploy_dynatrace_api_config_job_template_playbook: "deploy/playbooks/deploy_dynatrace_api_config.yml"
+aap_deploy_dynatrace_api_config_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_monaco_credential_name }}"
+aap_deploy_dynatrace_api_config_job_template_become_enabled: false
+aap_deploy_dynatrace_api_config_job_template_extra_vars:
+  target_hosts: "{{ aap_workshop_group_name }}"
+  dynatrace_api_config_eda_connection_url: "http://host.containers.internal:{{ aap_eda_activation_dt_webhook_port }}/"
+  dynatrace_api_config_eda_connection_token: "{{ aap_eda_activation_dt_webhook_token }}"
+
+# Job template for Dynatrace EdgeConnect deployment
+aap_deploy_dynatrace_edgeconnect_job_template_name: "destination-automation-deploy-dynatrace-edgeconnect"
+aap_deploy_dynatrace_edgeconnect_job_template_description: "Deploy Dynatrace EdgeConnect as a Podman container"
+aap_deploy_dynatrace_edgeconnect_job_template_playbook: "deploy/playbooks/deploy_dynatrace_edgeconnect.yml"
+aap_deploy_dynatrace_edgeconnect_job_template_credentials:
+  - "{{ aap_machine_credential_name }}"
+  - "{{ aap_dynatrace_monaco_credential_name }}"
+  - "{{ aap_dynatrace_oauth_credential_name }}"
+aap_deploy_dynatrace_edgeconnect_job_template_labels: "{{ aap_dynatrace_podman_deploy_job_template_labels }}"
+aap_deploy_dynatrace_edgeconnect_job_template_become_enabled: false
+aap_deploy_dynatrace_edgeconnect_job_template_extra_vars:
+  target_hosts: "{{ aap_workshop_group_name }}"
+  dynatrace_edgeconnect_restrict_hosts_to:
+    - "host.containers.internal"
+  dynatrace_edgeconnect_oauth_endpoint: "https://sso.dynatrace.com/sso/oauth2/token"
+
+# Job templates for app operations (start, stop, restart)
+aap_operate_start_app_job_template_name: "destination-automation-operate-start-app"
+aap_operate_start_app_job_template_description: "Starts easyTravel application stack"
+aap_operate_start_app_job_template_playbook: "operate/playbooks/start_app.yml"
+aap_operate_start_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_operate_start_app_job_template_become_enabled: false
+aap_operate_start_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  destination_automation_base_dir: "{{ aap_runtime_destination_automation_base_dir }}"
+
+aap_operate_stop_app_job_template_name: "destination-automation-operate-stop-app"
+aap_operate_stop_app_job_template_description: "Stops easyTravel application stack"
+aap_operate_stop_app_job_template_playbook: "operate/playbooks/stop_app.yml"
+aap_operate_stop_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_operate_stop_app_job_template_become_enabled: false
+aap_operate_stop_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  destination_automation_base_dir: "{{ aap_runtime_destination_automation_base_dir }}"
+
+aap_operate_restart_app_job_template_name: "destination-automation-operate-restart-app"
+aap_operate_restart_app_job_template_description: "Restarts easyTravel application stack"
+aap_operate_restart_app_job_template_playbook: "operate/playbooks/restart_app.yml"
+aap_operate_restart_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_operate_restart_app_job_template_become_enabled: false
+aap_operate_restart_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  destination_automation_base_dir: "{{ aap_runtime_destination_automation_base_dir }}"
+
+aap_operate_recycle_app_job_template_name: "destination-automation-operate-recycle-app"
+aap_operate_recycle_app_job_template_description: "Recycles easyTravel stack, recreating travel-advisor with current env vars (AI model, temperature, RAG)"
+aap_operate_recycle_app_job_template_playbook: "operate/playbooks/recycle_app.yml"
+aap_operate_recycle_app_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_operate_recycle_app_job_template_become_enabled: false
+aap_operate_recycle_app_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  destination_automation_base_dir: "{{ aap_runtime_destination_automation_base_dir }}"
+
+# Job template for app AI runtime automation
+aap_automate_app_ai_runtime_job_template_name: "destination-automation-automate-app-ai-runtime"
+aap_automate_app_ai_runtime_job_template_description: "Automates AI model, temperature, and RAG instruction updates"
+aap_automate_app_ai_runtime_job_template_playbook: "automate/playbooks/configure_app_ai_runtime.yml"
+aap_automate_app_ai_runtime_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_runtime_job_template_become_enabled: false
+aap_automate_app_ai_runtime_job_template_ask_variables_on_launch: true
+# Extra vars for app AI runtime configuration
+# app_ai_model_requested: Specify the Ollama model to use. Supported models: qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+# app_ai_temperature_requested: Set the LLM temperature (randomness). Min: 0.0 (deterministic), Max: 2.0 (very creative). Example: 0.7
+# app_ai_rag_instructions_content: System prompt/instructions for the LLM. The model uses this as context for generating responses. Supports multi-line text.
+aap_automate_app_ai_runtime_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_model_requested: "gemma2:2b"
+  app_ai_temperature_requested: "0.7"
+  app_ai_rag_instructions_content: |
+    You are a helpful travel advisor assistant. Use ONLY the information provided in the context below to answer questions about travel destinations.
+
+    CRITICAL INSTRUCTIONS:
+    - Use ONLY the facts from the context provided below
+    - Do NOT use any external knowledge or information you may have
+    - If the context contains information about the location, use it exactly as written
+    - If the context does not contain relevant information, say "I don't have information about that destination"
+    - Keep your response concise and helpful, maximum 50 words
+    - Emphasize any information you have about Dynatrace or Red Hat
+    - Do not include any emojis, markdown, or formatting in your response
+
+    <context>
+    {context}
+    </context>
+
+    Question: {destination}
+
+    Travel Advice:
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_runtime_job_template_extra_vars_yaml: |
+  # Ollama model identifier. Supported: qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+  app_ai_model_requested: "gemma3:1b-it-qat"
+  # LLM temperature/creativity level. Range: 0.0 (deterministic) to 2.0 (very creative). Typical: 0.2-1.0
+  app_ai_temperature_requested: "0.7"
+  # Multi-line system prompt/instructions for the LLM. Used as context for generating responses.
+  app_ai_rag_instructions_content: |
+    You are a helpful travel advisor assistant. Use ONLY the information provided in the context below to answer questions about travel destinations.
+
+    CRITICAL INSTRUCTIONS:
+    - Use ONLY the facts from the context provided below
+    - Do NOT use any external knowledge or information you may have
+    - If the context contains information about the location, use it exactly as written
+    - If the context does not contain relevant information, say "I don't have information about that destination"
+    - Keep your response concise and helpful, maximum 50 words
+    - Emphasize any information you have about Dynatrace or Red Hat
+    - Do not include any emojis, markdown, or formatting in your response
+
+    <context>
+    {context}
+    </context>
+
+    Question: {destination}
+
+    Travel Advice:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app AI model-only automation
+aap_automate_app_ai_model_job_template_name: "destination-automation-automate-app-ai-model"
+aap_automate_app_ai_model_job_template_description: "Automates AI model changes and Ollama model pull"
+aap_automate_app_ai_model_job_template_playbook: "automate/playbooks/configure_app_ai_runtime.yml"
+aap_automate_app_ai_model_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_model_job_template_become_enabled: false
+aap_automate_app_ai_model_job_template_ask_variables_on_launch: true
+# Extra var for app AI model selection
+# app_ai_model_requested: Specify the Ollama model to use. Supported models: qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+aap_automate_app_ai_model_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_model_requested: "qwen2.5:0.5b-instruct-q4_K_M"
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_model_job_template_extra_vars_yaml: |
+  # Ollama model identifier. Supported: qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+  app_ai_model_requested: "qwen2.5:0.5b-instruct-q4_K_M"
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app AI temperature-only automation
+aap_automate_app_ai_temperature_job_template_name: "destination-automation-automate-app-ai-temperature"
+aap_automate_app_ai_temperature_job_template_description: "Automates AI temperature changes"
+aap_automate_app_ai_temperature_job_template_playbook: "automate/playbooks/configure_app_ai_runtime.yml"
+aap_automate_app_ai_temperature_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_temperature_job_template_become_enabled: false
+aap_automate_app_ai_temperature_job_template_ask_variables_on_launch: true
+# Extra var for app AI temperature setting
+# app_ai_temperature_requested: Set the LLM temperature (randomness). Min: 0.0 (deterministic), Max: 2.0 (very creative). Example: 0.7
+aap_automate_app_ai_temperature_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_temperature_requested: "0.7"
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_temperature_job_template_extra_vars_yaml: |
+  # LLM temperature/creativity level. Range: 0.0 (deterministic) to 2.0 (very creative). Typical: 0.2-1.0
+  app_ai_temperature_requested: "0.7"
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app RAG instructions-only automation
+aap_automate_app_ai_rag_job_template_name: "destination-automation-automate-app-ai-rag-instructions"
+aap_automate_app_ai_rag_job_template_description: "Automates multiline RAG instruction changes"
+aap_automate_app_ai_rag_job_template_playbook: "automate/playbooks/configure_app_ai_runtime.yml"
+aap_automate_app_ai_rag_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_rag_job_template_become_enabled: false
+aap_automate_app_ai_rag_job_template_ask_variables_on_launch: true
+# Extra var for app AI RAG instructions
+# app_ai_rag_instructions_content: System prompt/instructions for the LLM. The model uses this as context for generating responses. Supports multi-line text.
+aap_automate_app_ai_rag_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_rag_instructions_content: |
+    You are a helpful travel advisor assistant. Use ONLY the information provided in the context below to answer questions about travel destinations.
+
+    CRITICAL INSTRUCTIONS:
+    - Use ONLY the facts from the context provided below
+    - Do NOT use any external knowledge or information you may have
+    - If the context contains information about the location, use it exactly as written
+    - If the context does not contain relevant information, say "I don't have information about that destination"
+    - Keep your response concise and helpful, maximum 50 words
+    - Emphasize any information you have about Dynatrace or Red Hat
+    - Do not include any emojis, markdown, or formatting in your response
+
+    <context>
+    {context}
+    </context>
+
+    Question: {destination}
+
+    Travel Advice:
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_rag_job_template_extra_vars_yaml: |
+  # Multi-line system prompt/instructions for the LLM. Used as context for generating responses.
+  app_ai_rag_instructions_content: |
+    You are a helpful travel advisor assistant. Use ONLY the information provided in the context below to answer questions about travel destinations.
+
+    CRITICAL INSTRUCTIONS:
+    - Use ONLY the facts from the context provided below
+    - Do NOT use any external knowledge or information you may have
+    - If the context contains information about the location, use it exactly as written
+    - If the context does not contain relevant information, say "I don't have information about that destination"
+    - Keep your response concise and helpful, maximum 50 words
+    - Emphasize any information you have about Dynatrace or Red Hat
+    - Do not include any emojis, markdown, or formatting in your response
+
+    <context>
+    {context}
+    </context>
+
+    Question: {destination}
+
+    Travel Advice:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app AI destinations automation
+aap_automate_app_ai_destinations_job_template_name: "destination-automation-automate-app-ai-destinations"
+aap_automate_app_ai_destinations_job_template_description: "Generates travel destination HTML files for the travel-advisor app"
+aap_automate_app_ai_destinations_job_template_playbook: "automate/playbooks/configure_app_ai_destinations.yml"
+aap_automate_app_ai_destinations_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_destinations_job_template_become_enabled: false
+aap_automate_app_ai_destinations_job_template_ask_variables_on_launch: true
+# Extra var for destination list
+# travel_destinations: List of destination objects. Each entry requires 'name' (display name) and 'details' (context paragraph).
+aap_automate_app_ai_destinations_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  travel_destinations:
+    - name: "London"
+      details: >-
+        London is a newly established city in England. In 2026 they opened their first airport
+        on the River Thames where every incoming flight must fly under the London Bridge.
+        It never rains in London, it's always sunny and warm.
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_destinations_job_template_extra_vars_yaml: |
+  # List of travel destinations. Each entry requires 'name' and 'details'.
+  # Add, remove, or modify entries — each destination becomes a separate HTML file.
+  travel_destinations:
+    - name: "London"
+      details: >-
+        London is a newly established city in England. In 2026 they opened their first airport
+        on the River Thames where every incoming flight must fly under the London Bridge.
+        It never rains in London, it's always sunny and warm.
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app AI embedding model automation (automate / drift simulation)
+aap_automate_app_ai_embedding_job_template_name: "destination-automation-automate-app-ai-embedding"
+aap_automate_app_ai_embedding_job_template_description: "Sets the AI embedding model feature flag to simulate vector drift"
+aap_automate_app_ai_embedding_job_template_playbook: "automate/playbooks/configure_app_ai_openfeature.yml"
+aap_automate_app_ai_embedding_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_automate_app_ai_embedding_job_template_become_enabled: false
+aap_automate_app_ai_embedding_job_template_ask_variables_on_launch: true
+# Extra var for embedding model selection
+# app_ai_embedding_model_requested: Specify the embedding model override. Supported: nomic-embed-text, qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+aap_automate_app_ai_embedding_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_embedding_model_requested: "qwen2.5:0.5b-instruct-q4_K_M"
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_automate_app_ai_embedding_job_template_extra_vars_yaml: |
+  # Embedding model override. Supported: nomic-embed-text, qwen2.5:0.5b-instruct-q4_K_M, llama3.2:1b-instruct-q4_K_M, gemma3:1b-it-qat, orca-mini:3b
+  # Default embedding model override used by the automate job template.
+  app_ai_embedding_model_requested: "qwen2.5:0.5b-instruct-q4_K_M"
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Job template for app AI embedding model remediation (remediate / reset to correct model)
+aap_remediate_app_ai_embedding_job_template_name: "destination-automation-remediate-app-ai-embedding"
+aap_remediate_app_ai_embedding_job_template_description: "Resets the AI embedding model feature flag to the correct model"
+aap_remediate_app_ai_embedding_job_template_playbook: "remediate/playbooks/configure_app_ai_openfeature.yml"
+aap_remediate_app_ai_embedding_job_template_credential: "{{ aap_machine_credential_name }}"
+aap_remediate_app_ai_embedding_job_template_become_enabled: false
+aap_remediate_app_ai_embedding_job_template_ask_variables_on_launch: false
+aap_remediate_app_ai_embedding_job_template_extra_vars:
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+  app_ai_embedding_model_requested: "nomic-embed-text"
+# YAML string version — comments are preserved when patched directly to the AAP API
+aap_remediate_app_ai_embedding_job_template_extra_vars_yaml: |
+  # Embedding model reset target used for remediation.
+  app_ai_embedding_model_requested: "nomic-embed-text"
+  target_hosts: "{{ aap_job_template_target_hosts }}"
+
+# Workflow job template for app AI runtime update + recycle flow
+aap_workflow_app_ai_runtime_job_template_name: "destination-automation-workflow-app-ai-runtime"
+aap_workflow_app_ai_runtime_job_template_description: "update app ai runtime and recycle"
+aap_workflow_app_ai_runtime_job_template_labels: "{{ aap_app_automate_job_template_labels }}"
+aap_workflow_app_ai_runtime_job_template_ask_variables_on_launch: true
+aap_workflow_app_ai_runtime_job_template_allow_simultaneous: false
+aap_workflow_app_ai_runtime_job_template_extra_vars_yaml: "{{ aap_automate_app_ai_runtime_job_template_extra_vars_yaml }}"
+aap_workflow_app_ai_runtime_automate_node_identifier: "automate-app-ai-runtime"
+aap_workflow_app_ai_runtime_recycle_node_identifier: "operate-recycle-app"
+aap_workflow_app_ai_runtime_automate_node_extra_data: "{{ aap_automate_app_ai_runtime_job_template_extra_vars }}"
+
+# Workflow job template for app clean -> build -> deploy flow
+aap_workflow_deploy_app_clean_job_template_name: "destination-automation-workflow-deploy-app-clean"
+aap_workflow_deploy_app_clean_job_template_description: "clean remove app and image then build new image and deploy app"
+aap_workflow_deploy_app_clean_job_template_labels:
+  - "{{ aap_app_label }}"
+  - "{{ aap_clean_label }}"
+  - "{{ aap_deploy_label }}"
+  - "{{ aap_podman_label }}"
+aap_workflow_deploy_app_clean_job_template_ask_variables_on_launch: false
+aap_workflow_deploy_app_clean_job_template_allow_simultaneous: false
+aap_workflow_deploy_app_clean_node_identifier_clean_remove_app: "clean-remove-app"
+aap_workflow_deploy_app_clean_node_identifier_clean_remove_image: "clean-remove-image"
+aap_workflow_deploy_app_clean_node_identifier_build_images: "build-images"
+aap_workflow_deploy_app_clean_node_identifier_deploy_app: "deploy-app"
+
+# =============================================================
+# EDA Controller configuration
+# =============================================================
+
+# EDA Controller connection (AAP 2.5+ gateway routes EDA at the same host)
+aap_eda_controller_host: "{{ aap_controller_host }}"
+aap_eda_controller_username: "{{ aap_controller_username }}"
+aap_eda_controller_password: "{{ aap_controller_password }}"
+aap_eda_controller_validate_certs: "{{ aap_controller_validate_certs }}"
+
+# Dynatrace Decision Environment
+aap_dt_de_name: "destination-automation-dt-de"
+aap_dt_de_description: "Decision Environment with Dynatrace EDA collection (de-supported-rhel9 base)"
+aap_dt_de_image: "{{ aap_custom_ee_registry_host }}/destination-automation-dt-de:latest"
+
+# EDA Project — requires GITHUB_USERNAME and GITHUB_TOKEN env vars at playbook run time.
+aap_eda_project_name: "destination-automation"
+aap_eda_project_description: "Workshop EDA rulebooks project"
+aap_eda_project_url: "https://github.com/popecruzdt/dev-destination-automation.git"
+aap_eda_scm_credential_name: "destination-automation-github"
+aap_eda_aap_credential_name: "destination-automation-aap"
+# Host URL used inside the EDA AAP credential — must be reachable from inside the DE container.
+# AAP 2.6 requires the /api/controller/ path suffix so ansible-rulebook probes the correct endpoint.
+aap_eda_aap_credential_host: >-
+  {{
+    (lookup('ansible.builtin.env', 'AAP_CONTROLLER_HOST')
+    | default('https://' + (lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default(ansible_fqdn, true)), true))
+    | regex_replace('/$', '') + '/api/controller/'
+  }}
+
+# EDA Rulebook activation — Dynatrace webhook remediation
+aap_eda_activation_name: "destination-automation-dt-webhook-remediate"
+aap_eda_activation_description: "Listens for Dynatrace webhook events and triggers embedding model remediation"
+aap_eda_activation_rulebook: "dt_webhook_rulebook.yml"
+aap_eda_activation_enabled: true
+# Webhook port exposed by the rulebook activation
+aap_eda_activation_dt_webhook_port: 5000
+# Optional bearer token for authenticating incoming Dynatrace webhook requests
+aap_eda_activation_dt_webhook_token: "dyn@tr@c3"
+aap_eda_activation_extra_vars:
+  dt_webhook_port: "{{ aap_eda_activation_dt_webhook_port }}"
+  dt_webhook_token: "{{ aap_eda_activation_dt_webhook_token }}"

@@ -1,0 +1,63 @@
+---
+- name: "app_ai_destinations | Validate travel_destinations is provided and non-empty"
+  ansible.builtin.assert:
+    that:
+      - travel_destinations is defined
+      - travel_destinations | length > 0
+    fail_msg: "travel_destinations must be a non-empty list of destination objects (each with 'name' and 'details')."
+
+- name: "app_ai_destinations | Validate each destination has required keys"
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | trim | length > 0
+      - item.details is defined
+      - item.details | trim | length > 0
+    fail_msg: "Each entry in travel_destinations must have non-empty 'name' and 'details' keys. Failed on: {{ item }}"
+  loop: "{{ travel_destinations }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: "app_ai_destinations | Ensure destinations directory exists"
+  ansible.builtin.file:
+    path: "{{ app_ai_destinations_path }}"
+    state: directory
+    mode: "0755"
+
+- name: "app_ai_destinations | Generate destination HTML files"
+  ansible.builtin.template:
+    src: destination.html.j2
+    dest: "{{ app_ai_destinations_path }}/{{ item.name | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('(^-|-$)', '') }}.html"
+    mode: "0644"
+  vars:
+    destination: "{{ item }}"
+  loop: "{{ travel_destinations }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: app_ai_destinations_result
+
+- name: "app_ai_destinations | Display destination summary"
+  ansible.builtin.debug:
+    msg:
+      - "Destinations processed: {{ travel_destinations | length }}"
+      - "Files written to: {{ app_ai_destinations_path }}"
+      - "Destinations:"
+      - "{{ travel_destinations | map(attribute='name') | list }}"
+
+- name: "app_ai_destinations | Set FORCE_REINDEX=true in deploy vars after new destinations"
+  ansible.builtin.lineinfile:
+    path: "{{ app_ai_destinations_deploy_vars_file_path }}"
+    regexp: '^\s{2}FORCE_REINDEX:\s'
+    line: '  FORCE_REINDEX: "true"'
+    backrefs: true
+  delegate_to: localhost
+  run_once: true
+  when: app_ai_destinations_result.changed
+
+- name: "app_ai_destinations | Remind operator to recycle the travel-advisor container"
+  ansible.builtin.debug:
+    msg:
+      - "New destination files written. FORCE_REINDEX has been set to true in deploy vars."
+      - "Run the recycle-app job template to rebuild the knowledge base with the new destinations."
+      - "After the recycle completes, FORCE_REINDEX will be reset to false automatically."
+  when: app_ai_destinations_result.changed

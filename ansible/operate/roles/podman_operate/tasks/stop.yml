@@ -1,0 +1,70 @@
+---
+# podman_operate | stop tasks
+# Stops easyTravel application containers idempotently
+# Gracefully stops all containers and preserves volumes and network
+
+- name: "podman_operate | stop | Check if containers exist"
+  containers.podman.podman_container_info:
+    name: "{{ item }}"
+  loop:
+    - "{{ weaviate_name }}"
+    - "{{ ollama_name }}"
+    - "{{ travel_advisor_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ nginx_name }}"
+  register: container_info
+  failed_when: false
+  changed_when: false
+
+- name: "podman_operate | stop | Initialize running containers list"
+  ansible.builtin.set_fact:
+    running_containers: []
+  changed_when: false
+
+- name: "podman_operate | stop | Extract running containers"
+  ansible.builtin.set_fact:
+    running_containers: "{{ running_containers + [item.item] }}"
+  loop: "{{ container_info.results }}"
+  when:
+    - item.containers | length > 0
+    - item.containers[0].State.Running | default(false)
+  changed_when: false
+  no_log: true
+
+- name: "podman_operate | stop | Display stop status"
+  ansible.builtin.debug:
+    msg:
+      - "Stopping containers..."
+      - "Containers to stop: {{ running_containers | join(', ') if running_containers else 'None (all containers already stopped)' }}"
+      - "Volumes and network will be preserved"
+  changed_when: false
+
+- name: "podman_operate | stop | Gracefully stop all containers"
+  containers.podman.podman_container:
+    name: "{{ item }}"
+    state: stopped
+    stop_timeout: "{{ stop_timeout }}"
+  loop:
+    - "{{ nginx_name }}"
+    - "{{ travel_advisor_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ ollama_name }}"
+    - "{{ weaviate_name }}"
+  register: stop_result
+  failed_when: false
+
+- name: "podman_operate | stop | Confirm stop complete"
+  ansible.builtin.debug:
+    msg:
+      - "✓ easyTravel application stack stopped"
+      - "✓ {{ running_containers | length }} container(s) stopped"
+      - "✓ Volumes and network preserved"
+      - "✓ Run 'start' action to restart containers"
+  when: running_containers | length > 0
+
+- name: "podman_operate | stop | Confirm all containers already stopped"
+  ansible.builtin.debug:
+    msg:
+      - "✓ All containers are already stopped"
+      - "✓ No action taken (idempotent)"
+  when: running_containers | length == 0

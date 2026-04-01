@@ -1,0 +1,14 @@
+api_endpoint_host: {{ dynatrace_edgeconnect_platform_url | regex_replace('^https?://', '') | regex_replace('/$', '') }}
+name: {{ dynatrace_edgeconnect_name }}
+oauth:
+  endpoint: {{ dynatrace_edgeconnect_oauth_endpoint }}
+  client_id: {{ dynatrace_edgeconnect_oauth_client_id }}
+  client_secret: {{ dynatrace_edgeconnect_oauth_client_secret }}
+  resource: {{ dynatrace_edgeconnect_oauth_account_urn }}
+{% if dynatrace_edgeconnect_restrict_hosts_to | length > 0 %}
+host_restrictions:
+  restrict_hosts_to:
+{% for host in dynatrace_edgeconnect_restrict_hosts_to %}
+    - {{ host }}
+{% endfor %}
+{% endif %}

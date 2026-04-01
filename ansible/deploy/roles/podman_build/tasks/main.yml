@@ -1,0 +1,77 @@
+---
+# podman_build role - tasks
+# Builds the easyTravel application container image using Podman
+
+- name: "podman_build | Verify Podman is installed"
+  ansible.builtin.command:
+    cmd: podman --version
+  register: podman_version
+  changed_when: false
+  failed_when: podman_version.rc != 0
+
+- name: "podman_build | Display Podman version"
+  ansible.builtin.debug:
+    msg: "{{ podman_version.stdout }}"
+
+- name: "podman_build | Resolve Containerfile path"
+  ansible.builtin.set_fact:
+    _containerfile_abs: >-
+      {{
+        containerfile_path
+        if (containerfile_path | regex_search('^/'))
+        else ((playbook_dir ~ '/' ~ containerfile_path) | realpath)
+      }}
+    _context_abs: >-
+      {{
+        app_src_path
+        if (app_src_path | regex_search('^/'))
+        else ((playbook_dir ~ '/' ~ app_src_path) | realpath)
+      }}
+
+- name: "podman_build | Verify Containerfile exists"
+  ansible.builtin.stat:
+    path: "{{ _containerfile_abs }}"
+  register: containerfile_stat
+
+- name: "podman_build | Fail if Containerfile is missing"
+  ansible.builtin.fail:
+    msg: "Containerfile not found at: {{ _containerfile_abs }}"
+  when: not containerfile_stat.stat.exists
+
+- name: "podman_build | Assemble build command arguments"
+  ansible.builtin.set_fact:
+    _build_args: >-
+      build
+      --tag {{ image_full }}
+      --file {{ _containerfile_abs }}
+      {% if podman_build_no_cache %}--no-cache{% endif %}
+      {% if podman_build_pull %}--pull{% endif %}
+      {% if podman_build_squash %}--squash{% endif %}
+      {% for key, value in podman_build_labels.items() %}
+      --label {{ key }}={{ value }}
+      {% endfor %}
+      {{ _context_abs }}
+
+- name: "podman_build | Build container image with podman command"
+  ansible.builtin.command:
+    cmd: "podman {{ _build_args }}"
+  register: build_output
+  changed_when: true
+
+- name: "podman_build | Display build progress (last 10 lines)"
+  ansible.builtin.debug:
+    msg: "{{ build_output.stdout_lines[-10:] }}"
+  when: build_output.stdout_lines | length > 0
+
+- name: "podman_build | Verify image exists using collection module"
+  containers.podman.podman_image:
+    name: "{{ image_full }}"
+    state: present
+  changed_when: false
+
+- name: "podman_build | Display build success"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Container image built successfully"
+      - "✓ Image: {{ image_full }}"
+      - "✓ Ready for deployment"

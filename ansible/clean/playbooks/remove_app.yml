@@ -1,0 +1,31 @@
+---
+# =============================================================
+# Clean Playbook - Remove easyTravel application stack
+# Stops/removes app containers and network created by deploy_app.
+#
+# Usage:
+#   ansible-playbook clean/playbooks/remove_app.yml
+#   ansible-playbook clean/playbooks/remove_app.yml -e "target_hosts=all"
+# =============================================================
+
+- name: "Workshop | Remove easyTravel Application Stack"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Display clean configuration"
+      ansible.builtin.debug:
+        msg:
+          - "Application:        {{ app_name }} v{{ app_version }}"
+          - "Target hosts:       {{ target_hosts | default('localhost') }}"
+          - "Network:            {{ network_name }}"
+          - "Remove volumes:     {{ podman_clean_remove_volumes }}"
+
+    - name: "Remove application stack"
+      ansible.builtin.include_role:
+        name: podman_clean
+      vars:
+        podman_clean_action: "remove_app"

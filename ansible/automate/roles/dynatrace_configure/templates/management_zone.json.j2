@@ -1,0 +1,51 @@
+{
+  "name": "{{ dynatrace_management_zone_name }}",
+  "rules": [
+    {
+      "type": "PROCESS_GROUP",
+      "enabled": true,
+      "propagationTypes": ["PROCESS_GROUP_TO_HOST", "PROCESS_GROUP_TO_SERVICE"],
+      "conditions": [
+        {
+          "key": {
+            "attribute": "PROCESS_GROUP_TAGS"
+          },
+          "comparisonInfo": {
+            "type": "TAG",
+            "operator": "TAG_KEY_EQUALS",
+            "value": {
+              "context": "CONTEXTLESS",
+              "key": "app",
+              "value": "{{ app_name }}"
+            },
+            "negate": false,
+            "caseSensitive": false
+          }
+        }
+      ]
+    },
+    {
+      "type": "SERVICE",
+      "enabled": true,
+      "propagationTypes": [],
+      "conditions": [
+        {
+          "key": {
+            "attribute": "SERVICE_TAGS"
+          },
+          "comparisonInfo": {
+            "type": "TAG",
+            "operator": "TAG_KEY_EQUALS",
+            "value": {
+              "context": "CONTEXTLESS",
+              "key": "app",
+              "value": "{{ app_name }}"
+            },
+            "negate": false,
+            "caseSensitive": false
+          }
+        }
+      ]
+    }
+  ]
+}

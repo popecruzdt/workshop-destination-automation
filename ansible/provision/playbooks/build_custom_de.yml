@@ -1,0 +1,48 @@
+---
+# =============================================================
+# Build Custom Decision Environment
+#
+# Builds a custom DE image containing the Dynatrace EDA collection
+# (dynatrace.event_driven_ansible) for use with EDA rulebook activations.
+#
+# Prerequisites:
+#   - podman installed on the build host
+#   - ansible-builder installable via pip
+#   - Red Hat registry access for de-supported-rhel9 base image
+#   - Hub registry accessible at DE_REGISTRY_HOST (or AAP_PRIVATE_HOSTNAME)
+#
+# Usage:
+#   ansible-playbook provision/playbooks/build_custom_de.yml
+#
+# Optional overrides:
+#   -e de_push_to_registry=false   # build locally only, skip push
+#   -e de_registry_host=my-hub     # override Hub registry hostname
+# =============================================================
+
+- name: "Workshop | Build custom decision environment images"
+  hosts: localhost
+  gather_facts: true
+  vars:
+    ansible_connection: local
+
+  roles:
+    - role: build_custom_de
+      become: true
+      tags:
+        - build-de
+        - provision
+
+  post_tasks:
+    - name: "Display next steps"
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "========================================"
+          - "Custom DE Build Complete"
+          - "========================================"
+          - "Registry images: {{ de_build_profile_summaries | map(attribute='registry_summary') | join(', ') }}"
+          - ""
+          - "To complete the workflow:"
+          - "  1. Run: ansible-playbook deploy/playbooks/configure_eda.yml"
+          - "     This will register the DE and create the rulebook activation in AAP EDA"
+          - ""

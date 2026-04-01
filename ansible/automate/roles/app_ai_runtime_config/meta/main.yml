@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  author: "destination-automation"
+  description: "Automates AI runtime model, temperature, and RAG instruction updates"
+  company: "Red Hat"
+  license: "MIT"
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+dependencies: []

@@ -1,0 +1,10 @@
+---
+{% if de_profile.collections | length == 0 %}
+# Intentionally empty: this DE relies entirely on capabilities already present in the base image.
+{% else %}
+collections:
+{% for collection in de_profile.collections %}
+  - name: {{ collection.name }}
+    version: "{{ collection.version }}"
+{% endfor %}
+{% endif %}

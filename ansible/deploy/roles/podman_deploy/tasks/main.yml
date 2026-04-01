@@ -1,0 +1,304 @@
+---
+# podman_deploy role - tasks
+# Deploys the easyTravel application stack using Podman collection modules
+# This showcases Red Hat Ansible Automation Platform's certified container management capabilities
+
+- name: "podman_deploy | Verify Podman is installed"
+  ansible.builtin.command:
+    cmd: podman --version
+  register: podman_version
+  changed_when: false
+  failed_when: podman_version.rc != 0
+
+- name: "podman_deploy | Verify image exists locally"
+  containers.podman.podman_image:
+    name: "{{ image_full }}"
+    state: present
+  changed_when: false
+
+- name: "podman_deploy | Build effective AI runtime environment"
+  ansible.builtin.set_fact:
+    podman_deploy_effective_travel_advisor_env: >-
+      {{
+        travel_advisor_env
+        | combine(
+            {
+              'AI_MODEL': podman_deploy_default_ai_model,
+              'AI_TEMPERATURE': podman_deploy_default_ai_temperature,
+              'RAG_PROMPT_PATH': podman_deploy_default_rag_prompt_path
+            },
+            recursive=True
+          )
+        if podman_deploy_enforce_ai_defaults
+        else travel_advisor_env
+      }}
+
+- name: "podman_deploy | Ensure prompts directory exists"
+  ansible.builtin.file:
+    path: "{{ app_config_path }}/prompts"
+    state: directory
+    mode: "0755"
+
+- name: "podman_deploy | Reset RAG instructions to default"
+  ansible.builtin.copy:
+    dest: "{{ app_config_path }}/prompts/rag_instructions.txt"
+    content: "{{ podman_deploy_default_rag_instructions | regex_replace('\\n?$', '\\n') }}"
+    mode: "0644"
+  when: podman_deploy_enforce_ai_defaults
+
+- name: "podman_deploy | Create Podman network"
+  containers.podman.podman_network:
+    name: "{{ network_name }}"
+    driver: bridge
+    state: present
+  register: network_result
+
+- name: "podman_deploy | Stop and remove existing containers"
+  containers.podman.podman_container:
+    name: "{{ item }}"
+    state: absent
+    force_delete: true
+  loop:
+    - "{{ travel_advisor_name }}"
+    - "{{ weaviate_name }}"
+    - "{{ ollama_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ nginx_name }}"
+  changed_when: false
+  failed_when: false
+
+- name: "podman_deploy | Create Weaviate container"
+  containers.podman.podman_container:
+    name: "{{ weaviate_name }}"
+    image: "cr.weaviate.io/semitechnologies/weaviate:1.30.1"
+    state: started
+    network: "{{ network_name }}"
+    expose:
+      - "8080"
+      - "50051"
+      - "2112"
+    env:
+      PROMETHEUS_MONITORING_ENABLED: 'true'
+      QUERY_DEFAULTS_LIMIT: '25'
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_API_BASED_MODULES: 'true'
+      ENABLE_MODULES: 'text2vec-ollama,generative-ollama'
+      AUTOSCHEMA_ENABLED: 'false'
+      CLUSTER_HOSTNAME: "node1"
+      RAFT_BOOTSTRAP_EXPECT: "1"
+      RAFT_JOIN: "node1:8300"
+      CLUSTER_GOSSIP_BIND_PORT: "7000"
+    volumes:
+      - "weaviate_data:/var/lib/weaviate:Z"
+    healthcheck: "CMD-SHELL wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"
+    healthcheck_interval: "10s"
+    healthcheck_timeout: "5s"
+    healthcheck_retries: 5
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      component: "vector-database"
+
+- name: "podman_deploy | Wait for Weaviate to be ready (up to 2 minutes)"
+  containers.podman.podman_container_exec:
+    name: "{{ weaviate_name }}"
+    command: "sh -lc 'wget -qO- http://127.0.0.1:8080/v1/.well-known/ready >/dev/null'"
+  register: weaviate_info
+  until: weaviate_info.rc is defined and weaviate_info.rc == 0
+  retries: 12
+  delay: 10
+  failed_when: false
+
+- name: "podman_deploy | Verify Weaviate is ready"
+  ansible.builtin.fail:
+    msg: "Weaviate container failed readiness check after 2 minutes. rc={{ weaviate_info.rc | default('unknown') }} stdout={{ weaviate_info.stdout | default('') }} stderr={{ weaviate_info.stderr | default('') }}"
+  when: weaviate_info.rc | default(1) != 0
+
+- name: "podman_deploy | Create Ollama container"
+  containers.podman.podman_container:
+    name: "{{ ollama_name }}"
+    image: "docker.io/ollama/ollama:0.18.2"
+    state: started
+    network: "{{ network_name }}"
+    expose:
+      - "11434"
+    env:
+      OLLAMA_KEEP_ALIVE: '10m'
+    volumes:
+      - "ollama_data:/root/.ollama:Z"
+    healthcheck: "CMD-SHELL export HOME=/root && ollama list >/dev/null || exit 1"
+    healthcheck_interval: "10s"
+    healthcheck_timeout: "5s"
+    healthcheck_retries: 5
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      component: "llm-server"
+
+- name: "podman_deploy | Wait for Ollama to be healthy (up to 2 minutes)"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "sh -lc 'export HOME=/root && ollama list >/dev/null'"
+  register: ollama_info
+  until: ollama_info.rc is defined and ollama_info.rc == 0
+  retries: 12
+  delay: 10
+  failed_when: false
+
+- name: "podman_deploy | Verify Ollama is healthy"
+  ansible.builtin.fail:
+    msg: "Ollama container failed readiness check after 2 minutes. rc={{ ollama_info.rc | default('unknown') }} stdout={{ ollama_info.stdout | default('') }} stderr={{ ollama_info.stderr | default('') }}"
+  when: ollama_info.rc | default(1) != 0
+
+- name: "podman_deploy | Pull LLM model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ podman_deploy_effective_travel_advisor_env.AI_MODEL }}"
+  register: ollama_pull
+
+- name: "podman_deploy | Pull embedding model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ travel_advisor_env.AI_EMBEDDING_MODEL }}"
+  register: ollama_embedding_pull
+
+- name: "podman_deploy | Render otel-collector config from template (Dynatrace export enabled)"
+  ansible.builtin.template:
+    src: otel-collector-config.yaml.j2
+    dest: "{{ app_config_path }}/opentelemetry/otel-collector-config.yaml"
+    mode: "0644"
+  no_log: true
+  when: (otel_collector_dynatrace_export | bool) and not (otel_collector_custom_config | bool)
+
+- name: "podman_deploy | Set otel-collector config filename"
+  ansible.builtin.set_fact:
+    otel_collector_config_filename: "{{ 'custom-otel-collector-config.yaml' if otel_collector_custom_config | bool else 'otel-collector-config.yaml' }}"
+
+- name: "podman_deploy | Create OpenTelemetry Collector container"
+  containers.podman.podman_container:
+    name: "{{ otel_collector_name }}"
+    image: "ghcr.io/dynatrace/dynatrace-otel-collector/dynatrace-otel-collector:0.45.0"
+    state: started
+    network: "{{ network_name }}"
+    expose:
+      - "4317"
+      - "4318"
+    volumes:
+      - "{{ app_config_path }}/opentelemetry/{{ otel_collector_config_filename }}:/etc/otel/config.yaml:ro,Z"
+    command:
+      - "--config=/etc/otel/config.yaml"
+    healthcheck: "CMD-SHELL /dynatrace-otel-collector --version || exit 1"
+    healthcheck_interval: "10s"
+    healthcheck_timeout: "5s"
+    healthcheck_retries: 3
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      component: "observability"
+
+- name: "podman_deploy | Verify OpenTelemetry Collector container is running"
+  containers.podman.podman_container_info:
+    name: "{{ otel_collector_name }}"
+  register: otel_collector_info
+  failed_when: >
+    otel_collector_info.containers | length == 0 or
+    otel_collector_info.containers[0].State.Running is not defined or
+    not otel_collector_info.containers[0].State.Running
+
+- name: "podman_deploy | Create easyTravel container"
+  containers.podman.podman_container:
+    name: "{{ travel_advisor_name }}"
+    hostname: "{{ travel_advisor_name }}"
+    image: "{{ image_full }}"
+    state: started
+    network: "{{ network_name }}"
+    network_aliases:
+      - "{{ travel_advisor_name }}"
+    expose:
+      - "{{ travel_advisor_port }}"
+    env: "{{ podman_deploy_effective_travel_advisor_env }}"
+    volumes:
+      - "{{ app_config_path }}/destinations:/app/destinations:ro,Z"
+      - "{{ app_config_path }}/prompts:/app/prompts:ro,Z"
+      - "{{ app_config_path }}/src:/app/src:ro,Z"
+      - "{{ app_config_path }}/public:/app/public:ro,Z"
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      environment: "{{ app_environment }}"
+      component: "application"
+
+- name: "podman_deploy | Wait for easyTravel application health (up to 2 minutes)"
+  containers.podman.podman_container_exec:
+    name: "{{ travel_advisor_name }}"
+    command: >-
+      python -c "import os, urllib.request; host = os.environ.get('HOST', '127.0.0.1'); port = os.environ.get('PORT', '{{ travel_advisor_port }}'); response = urllib.request.urlopen(f'http://{host}:{port}/health', timeout=5); raise SystemExit(0 if response.status == 200 else 1)"
+  register: travel_advisor_health
+  until: travel_advisor_health.rc is defined and travel_advisor_health.rc == 0
+  retries: 24
+  delay: 5
+  failed_when: false
+
+- name: "podman_deploy | Verify easyTravel application health"
+  ansible.builtin.fail:
+    msg: "easyTravel application failed readiness check after 2 minutes. rc={{ travel_advisor_health.rc | default('unknown') }} stdout={{ travel_advisor_health.stdout | default('') }} stderr={{ travel_advisor_health.stderr | default('') }}"
+  when: travel_advisor_health.rc | default(1) != 0
+
+- name: "podman_deploy | Create Nginx reverse proxy container"
+  containers.podman.podman_container:
+    name: "{{ nginx_name }}"
+    image: "docker.io/library/nginx:1.27-alpine"
+    state: started
+    network: "{{ network_name }}"
+    ports:
+      - "{{ host_nginx_port }}:{{ nginx_port }}"
+    volumes:
+      - "{{ app_config_path }}/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro,Z"
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      component: "reverse-proxy"
+
+- name: "podman_deploy | Wait for Nginx proxy health endpoint (up to 2 minutes)"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ host_nginx_port }}/health"
+    method: GET
+    status_code: 200
+  register: nginx_health
+  until: nginx_health.status is defined and nginx_health.status == 200
+  retries: 24
+  delay: 5
+  failed_when: false
+
+- name: "podman_deploy | Verify travel-advisor container is running"
+  containers.podman.podman_container_info:
+    name: "{{ travel_advisor_name }}"
+  register: travel_advisor_info
+  failed_when: travel_advisor_info.containers[0].State.Running is not defined or not travel_advisor_info.containers[0].State.Running
+
+- name: "podman_deploy | Verify Nginx container is running"
+  containers.podman.podman_container_info:
+    name: "{{ nginx_name }}"
+  register: nginx_info
+  failed_when: nginx_info.containers[0].State.Running is not defined or not nginx_info.containers[0].State.Running
+
+- name: "podman_deploy | Verify Nginx proxy health"
+  ansible.builtin.fail:
+    msg: "Nginx proxy health endpoint failed after 2 minutes. status={{ nginx_health.status | default('unknown') }} content={{ nginx_health.content | default('') }}"
+  when: nginx_health.status | default(0) != 200
+
+- name: "podman_deploy | Display deployment summary"
+  ansible.builtin.debug:
+    msg:
+      - "✓ easyTravel application stack deployed successfully"
+      - "✓ Network: {{ network_name }}"
+      - "✓ travel-advisor container: {{ travel_advisor_info.containers[0].State.Status }}"
+      - "✓ nginx container: {{ nginx_info.containers[0].State.Status }}"
+      - "✓ Access the application at: http://localhost:{{ host_nginx_port }}"

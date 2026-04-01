@@ -1,0 +1,14 @@
+---
+# podman_build role - defaults
+
+# Image build settings
+podman_build_no_cache: false
+podman_build_pull: true
+podman_build_squash: false
+
+# Build labels added to the image
+podman_build_labels:
+  app: "{{ app_name }}"
+  version: "{{ app_version }}"
+  environment: "{{ app_environment }}"
+  build_date: "{{ ansible_date_time.iso8601 | default(lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ')) }}"

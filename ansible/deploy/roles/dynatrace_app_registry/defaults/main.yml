@@ -1,0 +1,12 @@
+---
+# Dynatrace platform connection (injected by Monaco credential)
+dynatrace_app_registry_platform_url: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_URL') | default('', true) }}"
+dynatrace_app_registry_platform_token: "{{ lookup('ansible.builtin.env', 'DT_PLATFORM_TOKEN') | default('', true) }}"
+dynatrace_app_registry_validate_certs: false
+
+# List of Dynatrace app IDs to install (set via job template extra_vars; empty by default)
+dynatrace_app_registry_apps: []
+
+# Polling config for install-bundle completion check
+dynatrace_app_registry_poll_retries: 30
+dynatrace_app_registry_poll_delay: 10

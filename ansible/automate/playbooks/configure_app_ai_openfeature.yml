@@ -1,0 +1,19 @@
+---
+# =============================================================
+# Configure AI OpenFeature Flags (Automate)
+#
+# Sets AI embedding model feature flags via the app OpenFeature API.
+# Triggers drift simulation by overriding the embedding model.
+#
+# Usage:
+#   ansible-playbook automate/playbooks/configure_app_ai_openfeature.yml \
+#     -e "target_hosts=workshop" \
+#     -e "app_ai_embedding_model_requested=gemma3:1b-it-qat"
+# =============================================================
+
+- name: "Workshop | Configure AI OpenFeature Flags"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: app_ai_openfeature

@@ -1,0 +1,32 @@
+---
+# dynatrace_oneagent_deploy role defaults
+
+# Direct download from Dynatrace environment (Option 1)
+dynatrace_oneagent_environment_url: >-
+  {{
+    lookup('ansible.builtin.env', 'oneagent_environment_url')
+    | default(lookup('ansible.builtin.env', 'DYNATRACE_ENV_URL'), true)
+    | default('', true)
+  }}
+dynatrace_oneagent_paas_token: >-
+  {{
+    lookup('ansible.builtin.env', 'oneagent_paas_token')
+    | default(lookup('ansible.builtin.env', 'DYNATRACE_PAAS_TOKEN'), true)
+    | default('', true)
+  }}
+dynatrace_oneagent_validate_certs: "{{ (lookup('ansible.builtin.env', 'DYNATRACE_VALIDATE_CERTS') | default('true', true)) | bool }}"
+
+# Version controls
+dynatrace_oneagent_version_mode: "latest"  # latest | pinned
+dynatrace_oneagent_pinned_version: "1.335.30.20260323-151312"
+
+# RHEL 9 x86 install defaults
+dynatrace_oneagent_installer_arch: "x86"
+dynatrace_oneagent_download_dir: "/tmp"
+dynatrace_oneagent_package_state: "present"
+
+# OneAgent install args
+dynatrace_oneagent_host_group: "destination-automation"
+dynatrace_oneagent_install_args:
+  - "--set-host-group={{ dynatrace_oneagent_host_group }}"
+dynatrace_oneagent_platform_install_args: []

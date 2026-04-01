@@ -1,0 +1,236 @@
+---
+- name: "aap_config | Validate supported deploy mode"
+  ansible.builtin.assert:
+    that:
+      - aap_deploy_mode in ['local', 'external']
+    fail_msg: "aap_deploy_mode must be 'local' or 'external'."
+
+- name: "aap_config | Validate required controller API settings"
+  ansible.builtin.assert:
+    that:
+      - aap_controller_host | length > 0
+      - aap_controller_username | length > 0
+      - aap_controller_password | length > 0
+    fail_msg: >-
+      AAP controller API credentials are required.
+      Set AAP_CONTROLLER_HOST, AAP_CONTROLLER_USERNAME, and AAP_CONTROLLER_PASSWORD.
+
+- name: "aap_config | Validate participant count"
+  ansible.builtin.assert:
+    that:
+      - (aap_participant_count | int) >= 1
+    fail_msg: "aap_participant_count must be >= 1."
+
+- name: "aap_config | Validate required external mode settings"
+  ansible.builtin.assert:
+    that:
+      - aap_external_project_scm_url | length > 0
+      - aap_external_inventory_hosts | length > 0
+    fail_msg: >-
+      external mode requires aap_external_project_scm_url (or env AAP_PROJECT_SCM_URL)
+      and at least one aap_external_inventory_hosts entry with target connection details.
+  when: aap_deploy_mode == 'external'
+
+- name: "aap_config | Validate local mode hostname settings"
+  ansible.builtin.assert:
+    that:
+      - aap_local_private_hostname | length > 0
+      - aap_local_inventory_host_name | length > 0
+    fail_msg: >-
+      local mode requires a resolvable private hostname.
+      Set AAP_PRIVATE_HOSTNAME or AAP_LOCAL_INVENTORY_HOST_NAME if auto-detection fails.
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Validate external inventory host entries"
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | length > 0
+    fail_msg: "Each external inventory host must define a non-empty 'name'."
+  loop: "{{ aap_external_inventory_hosts }}"
+  when: aap_deploy_mode == 'external'
+
+- name: "aap_config | Check awx.awx collection availability"
+  ansible.builtin.command:
+    cmd: ansible-galaxy collection list awx.awx
+  register: aap_awx_collection_check
+  changed_when: false
+  failed_when: aap_awx_collection_check.rc != 0
+
+- name: "aap_config | Ensure local AAP project root exists"
+  ansible.builtin.file:
+    path: "{{ aap_local_projects_root }}"
+    state: directory
+    owner: "{{ aap_local_project_owner }}"
+    group: "{{ aap_local_project_group }}"
+    mode: "0755"
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure local destination project directory exists"
+  ansible.builtin.file:
+    path: "{{ aap_local_projects_root }}/{{ aap_local_project_path_name }}"
+    state: directory
+    owner: "{{ aap_local_project_owner }}"
+    group: "{{ aap_local_project_group }}"
+    mode: "0755"
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure service account runtime base directory exists"
+  ansible.builtin.file:
+    path: "{{ aap_runtime_destination_automation_base_dir }}"
+    state: directory
+    owner: "{{ aap_machine_credential_username }}"
+    group: "{{ aap_machine_credential_username }}"
+    mode: "0755"
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Sync app content to service account runtime directory"
+  ansible.builtin.command:
+    cmd: >-
+      rsync -a --delete
+      {{ aap_local_app_source_dir }}/
+      {{ aap_runtime_destination_automation_base_dir }}/app/
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure service account owns runtime app directory"
+  ansible.builtin.file:
+    path: "{{ aap_runtime_destination_automation_base_dir }}/app"
+    state: directory
+    owner: "{{ aap_machine_credential_username }}"
+    group: "{{ aap_machine_credential_username }}"
+    recurse: true
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure runtime dynatrace config directory exists"
+  ansible.builtin.file:
+    path: "{{ aap_runtime_destination_automation_base_dir }}/dynatrace/config"
+    state: directory
+    owner: "{{ aap_machine_credential_username }}"
+    group: "{{ aap_machine_credential_username }}"
+    mode: "0755"
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Sync dynatrace config to service account runtime directory"
+  ansible.builtin.command:
+    cmd: >-
+      rsync -a --delete
+      {{ aap_local_dynatrace_config_source_dir }}/
+      {{ aap_runtime_destination_automation_base_dir }}/dynatrace/config/
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure service account owns runtime dynatrace directory"
+  ansible.builtin.file:
+    path: "{{ aap_runtime_destination_automation_base_dir }}/dynatrace"
+    state: directory
+    owner: "{{ aap_machine_credential_username }}"
+    group: "{{ aap_machine_credential_username }}"
+    recurse: true
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Verify setfacl is available for source ACL management"
+  ansible.builtin.command:
+    cmd: command -v setfacl
+  register: aap_setfacl_check
+  changed_when: false
+  failed_when: aap_setfacl_check.rc != 0
+  when:
+    - aap_deploy_mode == 'local'
+    - aap_grant_service_account_source_access
+
+- name: "aap_config | Grant service account traverse access to home directory"
+  ansible.builtin.command:
+    cmd: "setfacl -m u:{{ aap_machine_credential_username }}:x {{ aap_source_access_home_dir }}"
+  become: true
+  changed_when: true
+  when:
+    - aap_deploy_mode == 'local'
+    - aap_grant_service_account_source_access
+
+- name: "aap_config | Grant service account read/traverse access to apps tree"
+  ansible.builtin.command:
+    cmd: "setfacl -m u:{{ aap_machine_credential_username }}:rx {{ aap_source_access_home_dir }}/apps {{ aap_destination_automation_base_dir }}"
+  become: true
+  changed_when: true
+  when:
+    - aap_deploy_mode == 'local'
+    - aap_grant_service_account_source_access
+
+- name: "aap_config | Grant service account recursive read access to app source"
+  ansible.builtin.command:
+    cmd: "setfacl -R -m u:{{ aap_machine_credential_username }}:rX {{ aap_destination_automation_base_dir }}/app"
+  become: true
+  changed_when: true
+  when:
+    - aap_deploy_mode == 'local'
+    - aap_grant_service_account_source_access
+
+- name: "aap_config | Copy workshop ansible content to local AAP project directory"
+  ansible.builtin.command:
+    cmd: >-
+      rsync -a --delete
+      {{ aap_local_ansible_source_dir }}/
+      {{ aap_local_projects_root }}/{{ aap_local_project_path_name }}/
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Ensure dynatrace directory exists in local AAP project"
+  ansible.builtin.file:
+    path: "{{ aap_local_projects_root }}/{{ aap_local_project_path_name }}/dynatrace"
+    state: directory
+    owner: "{{ aap_local_project_owner }}"
+    group: "{{ aap_local_project_group }}"
+    mode: "0755"
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Copy workshop dynatrace config to local AAP project directory"
+  ansible.builtin.command:
+    cmd: >-
+      rsync -a --delete
+      {{ aap_local_dynatrace_config_source_dir }}/
+      {{ aap_local_projects_root }}/{{ aap_local_project_path_name }}/dynatrace/config/
+  become: true
+  when: aap_deploy_mode == 'local'
+
+- name: "aap_config | Configure UI session timeout"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}{{ aap_controller_api_prefix }}v2/settings/authentication/"
+    method: PATCH
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    body_format: json
+    body:
+      SESSION_COOKIE_AGE: "{{ aap_session_cookie_age }}"
+    status_code: 200
+
+- name: "aap_config | Apply controller login configuration"
+  ansible.builtin.include_tasks:
+    file: controller_logins.yml
+    apply:
+      environment:
+        CONTROLLER_OPTIONAL_API_URLPATTERN_PREFIX: "{{ aap_controller_api_prefix }}"
+
+- name: "aap_config | Apply controller object configuration"
+  ansible.builtin.include_tasks:
+    file: controller_objects.yml
+    apply:
+      environment:
+        CONTROLLER_OPTIONAL_API_URLPATTERN_PREFIX: "{{ aap_controller_api_prefix }}"
+
+- name: "aap_config | Display configuration summary"
+  ansible.builtin.debug:
+    msg:
+      - "Configured AAP organization: {{ aap_org_name }}"
+      - "Configured AAP project: {{ aap_project_name }} (mode={{ aap_deploy_mode }})"
+      - "Configured AAP inventory: {{ aap_inventory_name }}"
+      - "Configured users: {{ aap_instructor_username }} (admin), {{ aap_participant_usernames | length }} participant user(s)"

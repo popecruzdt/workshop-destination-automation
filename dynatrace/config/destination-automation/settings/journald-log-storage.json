@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "config-item-title": "Include destination-automation journald logs",
+  "send-to-storage": true,
+  "matchers": [
+    {
+      "attribute": "log.source.origin",
+      "operator": "MATCHES",
+      "values": ["JOURNALD_LOG_DETECTOR"]
+    }
+  ]
+}

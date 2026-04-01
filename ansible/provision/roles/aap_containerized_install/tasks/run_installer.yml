@@ -1,0 +1,79 @@
+---
+- name: Check if AAP controller data dir already exists
+  ansible.builtin.stat:
+    path: "{{ aap_controller_data_dir }}"
+  register: aap_controller_data_dir_stat
+
+- name: Enforce non-root installer execution user
+  ansible.builtin.assert:
+    that:
+      - aap_install_user | lower != 'root'
+    fail_msg: >-
+      Installer execution is intentionally restricted to a non-root user.
+      Set AAP_INSTALL_USER to a regular account and rerun. If you must run
+      installer steps as root, modify this role locally to remove this guard.
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Announce non-root installer execution context
+  ansible.builtin.debug:
+    msg: >-
+      Running AAP containerized installer as non-root user '{{ aap_install_user }}'
+      (not root) by design.
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Resolve installer log path
+  ansible.builtin.set_fact:
+    aap_effective_installer_log_path: >-
+      {{
+        aap_installer_log_path
+        if (aap_installer_log_path | length > 0)
+        else (aap_installer_extracted_dir + '/aap_install.log')
+      }}
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Ensure installer log file exists and is user-owned
+  ansible.builtin.file:
+    path: "{{ aap_effective_installer_log_path }}"
+    state: touch
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0644"
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Announce installer log monitoring
+  ansible.builtin.debug:
+    msg: >-
+      Nested installer output will be written to {{ aap_effective_installer_log_path }}.
+      This role will print recent log excerpts every {{ aap_installer_monitor_delay }} seconds
+      while the installer is running.
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Run containerized installer playbook
+  ansible.builtin.shell: >-
+    ansible-playbook
+    -i {{ aap_inventory_output_path }}
+    collections/ansible_collections/ansible/containerized_installer/playbooks/install.yml
+    > {{ aap_effective_installer_log_path }} 2>&1
+  args:
+    chdir: "{{ aap_installer_extracted_dir }}"
+    executable: /bin/bash
+  environment:
+    XDG_DATA_HOME: "{{ aap_xdg_data_home }}"
+  become: true
+  become_user: "{{ aap_install_user }}"
+  async: 14400
+  poll: 0
+  register: aap_install_async
+  changed_when: true
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Monitor containerized installer progress
+  ansible.builtin.include_tasks: monitor_installer.yml
+  when: not aap_controller_data_dir_stat.stat.exists
+
+- name: Installer already appears present
+  ansible.builtin.debug:
+    msg: >-
+      Skipping installer execution because {{ aap_controller_data_dir }} already exists.
+      Set AAP_RUN_INSTALLER=true and remove that directory if you need a reinstall.
+  when: aap_controller_data_dir_stat.stat.exists

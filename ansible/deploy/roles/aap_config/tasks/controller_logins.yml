@@ -1,0 +1,97 @@
+---
+- name: "aap_config | Ensure generated password storage exists"
+  ansible.builtin.file:
+    path: "{{ aap_password_store_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: "aap_config | Resolve login passwords (env override or generated fallback)"
+  ansible.builtin.set_fact:
+    aap_instructor_password: >-
+      {{
+        aap_instructor_password
+        if (aap_instructor_password | length > 0)
+        else lookup('ansible.builtin.password', aap_instructor_password_store_file + ' length=24 chars=ascii_letters,digits')
+      }}
+    aap_eda_service_account_password: >-
+      {{
+        aap_eda_service_account_password
+        if (aap_eda_service_account_password | length > 0)
+        else lookup('ansible.builtin.password', aap_eda_service_account_password_store_file + ' length=24 chars=ascii_letters,digits')
+      }}
+  no_log: true
+
+- name: "aap_config | Build participant username list"
+  ansible.builtin.set_fact:
+    aap_participant_usernames: >-
+      {{
+        query('ansible.builtin.sequence', 'start=1 end=' ~ (aap_participant_count | int))
+        | map('regex_replace', '^', aap_participant_username_prefix)
+        | list
+      }}
+
+- name: "aap_config | Initialize participant password map"
+  ansible.builtin.set_fact:
+    aap_participant_password_map: {}
+  no_log: true
+
+- name: "aap_config | Resolve unique participant passwords"
+  ansible.builtin.set_fact:
+    aap_participant_password_map: >-
+      {{
+        aap_participant_password_map
+        | combine(
+            {
+              item: (
+                lookup('ansible.builtin.env', 'AAP_' ~ (item | upper) ~ '_PASSWORD')
+                if (lookup('ansible.builtin.env', 'AAP_' ~ (item | upper) ~ '_PASSWORD') | length > 0)
+                else (
+                  aap_participant_password
+                  if (aap_participant_password | length > 0)
+                  else lookup('ansible.builtin.password', aap_password_store_dir ~ '/' ~ item ~ '_password length=24 chars=ascii_letters,digits')
+                )
+              )
+            }
+          )
+      }}
+  loop: "{{ aap_participant_usernames }}"
+  no_log: true
+
+- name: "aap_config | Create instructor user"
+  awx.awx.user:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    username: "{{ aap_instructor_username }}"
+    password: "{{ aap_instructor_password }}"
+    email: "{{ aap_instructor_email }}"
+    is_superuser: false
+    state: present
+
+- name: "aap_config | Create participant users"
+  awx.awx.user:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    username: "{{ item }}"
+    password: "{{ aap_participant_password_map[item] }}"
+    email: "{{ item }}@example.com"
+    is_superuser: false
+    state: present
+  loop: "{{ aap_participant_usernames }}"
+
+- name: "aap_config | Create EDA service account user"
+  awx.awx.user:
+    controller_host: "{{ aap_controller_host }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    username: "{{ aap_eda_service_account_username }}"
+    password: "{{ aap_eda_service_account_password }}"
+    email: "{{ aap_eda_service_account_email }}"
+    first_name: "EDA"
+    last_name: "Service Account"
+    is_superuser: false
+    state: present

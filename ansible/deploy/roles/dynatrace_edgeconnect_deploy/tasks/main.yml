@@ -1,0 +1,161 @@
+---
+- name: "dynatrace_edgeconnect_deploy | Validate required credentials"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_edgeconnect_platform_url | length > 0
+      - dynatrace_edgeconnect_oauth_client_id | length > 0
+      - dynatrace_edgeconnect_oauth_client_id != 'REPLACE_ME'
+      - dynatrace_edgeconnect_oauth_client_secret | length > 0
+      - dynatrace_edgeconnect_oauth_client_secret != 'REPLACE_ME'
+      - dynatrace_edgeconnect_oauth_account_urn | length > 0
+      - dynatrace_edgeconnect_oauth_account_urn != 'REPLACE_ME'
+    fail_msg: >-
+      DT_PLATFORM_URL, DT_OAUTH_CLIENT_ID, DT_OAUTH_CLIENT_SECRET, and DT_OAUTH_ACCOUNT_URN
+      must be set before running this role. Ensure the Monaco and Dynatrace OAuth Client
+      credentials are attached to this job template.
+
+# ============================================================
+# EdgeConnect API registration
+# ============================================================
+
+- name: "dynatrace_edgeconnect_deploy | Obtain OAuth access token for EdgeConnect API"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_edgeconnect_oauth_endpoint }}"
+    method: POST
+    headers:
+      Content-Type: "application/x-www-form-urlencoded"
+    body_format: form-urlencoded
+    body:
+      grant_type: "client_credentials"
+      client_id: "{{ dynatrace_edgeconnect_oauth_client_id }}"
+      client_secret: "{{ dynatrace_edgeconnect_oauth_client_secret }}"
+      resource: "{{ dynatrace_edgeconnect_oauth_account_urn }}"
+      scope: "app-engine:edge-connects:read app-engine:edge-connects:write oauth2:clients:manage"
+    validate_certs: "{{ dynatrace_edgeconnect_validate_certs }}"
+    status_code: 200
+  register: _edgeconnect_oauth_token_result
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Get registered EdgeConnect configurations"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_edgeconnect_platform_url | regex_replace('/$', '') }}/platform/app-engine/edge-connect/v1/edge-connects"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ _edgeconnect_oauth_token_result.json.access_token }}"
+    validate_certs: "{{ dynatrace_edgeconnect_validate_certs }}"
+    status_code: 200
+  register: _edgeconnect_list_result
+
+- name: "dynatrace_edgeconnect_deploy | Find existing EdgeConnect registration by name"
+  ansible.builtin.set_fact:
+    _edgeconnect_registered: >-
+      {{
+        _edgeconnect_list_result.json.edgeConnects
+        | selectattr('name', 'equalto', dynatrace_edgeconnect_name)
+        | list
+      }}
+
+- name: "dynatrace_edgeconnect_deploy | No changes required — '{{ dynatrace_edgeconnect_name }}' already registered"
+  ansible.builtin.debug:
+    msg: >-
+      EdgeConnect '{{ dynatrace_edgeconnect_name }}' is already registered
+      (id: {{ _edgeconnect_registered[0].id }}).
+      No changes required.
+  when: _edgeconnect_registered | length > 0
+
+- name: "dynatrace_edgeconnect_deploy | Build EdgeConnect registration body"
+  ansible.builtin.set_fact:
+    _edgeconnect_register_body: "{{
+      {
+        'name': dynatrace_edgeconnect_name,
+        'hostPatterns': dynatrace_edgeconnect_host_patterns,
+        'hostMappings': dynatrace_edgeconnect_host_mappings
+      } | combine(
+        {'oauthClientId': dynatrace_edgeconnect_oauth_client_id}
+        if dynatrace_edgeconnect_oauth_client_id | length > 0
+        else {}
+      )
+    }}"
+  when: _edgeconnect_registered | length == 0
+
+- name: "dynatrace_edgeconnect_deploy | Register EdgeConnect '{{ dynatrace_edgeconnect_name }}'"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_edgeconnect_platform_url | regex_replace('/$', '') }}/platform/app-engine/edge-connect/v1/edge-connects"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _edgeconnect_oauth_token_result.json.access_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ _edgeconnect_register_body }}"
+    validate_certs: "{{ dynatrace_edgeconnect_validate_certs }}"
+    status_code: 201
+  register: _edgeconnect_post_result
+  no_log: true
+  when: _edgeconnect_registered | length == 0
+
+- name: "dynatrace_edgeconnect_deploy | Display EdgeConnect registration result"
+  ansible.builtin.debug:
+    msg: >-
+      Registered EdgeConnect '{{ _edgeconnect_post_result.json.name }}'.
+      id: {{ _edgeconnect_post_result.json.id }}
+      oauthClientId: {{ _edgeconnect_post_result.json.oauthClientId }}
+      oauthClientResource: {{ _edgeconnect_post_result.json.oauthClientResource }}
+      {% if _edgeconnect_post_result.json.oauthClientSecret | default('') | length > 0 %}
+      NOTE: New OAuth client auto-generated — save the oauthClientSecret now, it is NOT retrievable later:
+      oauthClientSecret: {{ _edgeconnect_post_result.json.oauthClientSecret }}
+      {% endif %}
+  when: _edgeconnect_registered | length == 0
+
+# ============================================================
+# EdgeConnect container deployment
+# ============================================================
+
+- name: "dynatrace_edgeconnect_deploy | Ensure EdgeConnect config directory exists"
+  ansible.builtin.file:
+    path: "{{ dynatrace_edgeconnect_config_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: "dynatrace_edgeconnect_deploy | Render EdgeConnect configuration file"
+  ansible.builtin.template:
+    src: edgeConnect.yaml.j2
+    dest: "{{ dynatrace_edgeconnect_config_dir }}/edgeConnect.yaml"
+    mode: '0644'
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Pull EdgeConnect container image"
+  containers.podman.podman_image:
+    name: "{{ dynatrace_edgeconnect_image }}"
+    state: present
+
+- name: "dynatrace_edgeconnect_deploy | Remove existing EdgeConnect container"
+  containers.podman.podman_container:
+    name: "{{ dynatrace_edgeconnect_container_name }}"
+    state: absent
+    force_delete: true
+  changed_when: false
+  failed_when: false
+
+- name: "dynatrace_edgeconnect_deploy | Start EdgeConnect container"
+  containers.podman.podman_container:
+    name: "{{ dynatrace_edgeconnect_container_name }}"
+    image: "{{ dynatrace_edgeconnect_image }}"
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ dynatrace_edgeconnect_config_dir }}/edgeConnect.yaml:/edgeConnect.yaml:ro,Z"
+
+- name: "dynatrace_edgeconnect_deploy | Verify EdgeConnect container is running"
+  containers.podman.podman_container_info:
+    name: "{{ dynatrace_edgeconnect_container_name }}"
+  register: _edgeconnect_container_info
+  failed_when: >-
+    _edgeconnect_container_info.containers | length == 0 or
+    _edgeconnect_container_info.containers[0].State.Status != 'running'
+
+- name: "dynatrace_edgeconnect_deploy | Display EdgeConnect deployment result"
+  ansible.builtin.debug:
+    msg: >-
+      EdgeConnect container '{{ dynatrace_edgeconnect_container_name }}' is running.
+      Image: {{ dynatrace_edgeconnect_image }}.
+      Config dir: {{ dynatrace_edgeconnect_config_dir }}.

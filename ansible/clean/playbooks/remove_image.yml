@@ -1,0 +1,30 @@
+---
+# =============================================================
+# Clean Playbook - Remove easyTravel application image
+# Removes the built image from local Podman image cache.
+#
+# Usage:
+#   ansible-playbook clean/playbooks/remove_image.yml
+#   ansible-playbook clean/playbooks/remove_image.yml -e "target_hosts=all"
+# =============================================================
+
+- name: "Workshop | Remove easyTravel Container Image"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Display clean configuration"
+      ansible.builtin.debug:
+        msg:
+          - "Application:        {{ app_name }} v{{ app_version }}"
+          - "Target hosts:       {{ target_hosts | default('localhost') }}"
+          - "Image:              {{ image_full }}"
+
+    - name: "Remove container image"
+      ansible.builtin.include_role:
+        name: podman_clean
+      vars:
+        podman_clean_action: "remove_image"

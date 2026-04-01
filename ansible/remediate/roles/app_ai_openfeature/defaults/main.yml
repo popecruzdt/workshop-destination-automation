@@ -1,0 +1,19 @@
+---
+# app_ai_openfeature role defaults (remediate)
+
+app_ai_openfeature_flags:
+  embedding_model:
+    description: "Override the embedding model used for vector similarity search"
+    api_path: "/api/v1/set-embedding-model"
+    param: "model"
+    var: "app_ai_embedding_model_requested"
+
+app_ai_embedding_model_requested: "nomic-embed-text"
+app_ai_supported_embedding_models:
+  - "nomic-embed-text"
+  - "qwen2.5:0.5b-instruct-q4_K_M"
+  - "llama3.2:1b-instruct-q4_K_M"
+  - "gemma3:1b-it-qat"
+  - "orca-mini:3b"
+
+app_ai_openfeature_base_url: "http://localhost:{{ host_nginx_port | default(81) }}"

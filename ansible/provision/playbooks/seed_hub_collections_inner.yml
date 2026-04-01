@@ -1,0 +1,42 @@
+---
+# WARNING: This is an internal playbook meant to be called by seed_hub.yml via the AAP containerized install role.
+# Do NOT run this playbook directly before running the install_aap_containerized playbook.
+# It requires an already-installed AAP containerized instance.
+#
+- name: Prepare facts for Automation Hub seeding
+  hosts: automationgateway:automationhub
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+
+    - name: Set common container installer facts
+      ansible.builtin.import_role:
+        name: ansible.containerized_installer.common
+        tasks_from: facts.yml
+
+- name: Set Automation Gateway facts for Hub seeding
+  hosts: automationgateway
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Set automation gateway facts
+      ansible.builtin.import_role:
+        name: ansible.containerized_installer.automationgateway
+        tasks_from: facts.yml
+
+- name: Upload bundled collections to Automation Hub only
+  hosts: automationhub
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  tasks:
+    - name: Upload ansible collections to Automation Hub
+      ansible.builtin.import_role:
+        name: ansible.containerized_installer.automationhub
+        tasks_from: upload_collections.yml
+      vars:
+        hub_seed_collections: true
+      when:
+        - bundle_install | default(false) | bool

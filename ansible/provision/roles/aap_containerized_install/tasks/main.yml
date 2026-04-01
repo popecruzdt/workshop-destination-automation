@@ -1,0 +1,30 @@
+---
+- name: Skip role when disabled
+  ansible.builtin.meta: end_host
+  when: not aap_install_enabled
+
+- name: Run preflight checks
+  ansible.builtin.include_tasks:
+    file: preflight.yml
+    apply:
+      become: true
+
+- name: Prepare host OS for AAP containerized installation
+  ansible.builtin.include_tasks:
+    file: prepare_os.yml
+    apply:
+      become: true
+
+- name: Stage installer and detect extracted directory
+  ansible.builtin.include_tasks: stage_installer.yml
+
+- name: Build inventory file from workshop variables
+  ansible.builtin.include_tasks: build_inventory.yml
+
+- name: Execute installer
+  ansible.builtin.include_tasks: run_installer.yml
+  when: aap_run_installer
+
+- name: Validate AAP containerized installation
+  ansible.builtin.include_tasks: validate_install.yml
+  when: aap_run_installer

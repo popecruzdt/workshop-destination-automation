@@ -1,0 +1,174 @@
+---
+# =============================================================
+# EDA Controller objects: Decision Environment, Project, Rulebook Activation
+#
+# Run standalone via:
+#   ansible-playbook deploy/playbooks/configure_eda.yml
+#
+# Required environment variables (must be exported before running):
+#   GITHUB_USERNAME  - GitHub username that owns the private repo
+#   GITHUB_TOKEN     - GitHub Personal Access Token with repo read scope
+# =============================================================
+
+- name: "aap_config | Read GitHub credentials from environment"
+  ansible.builtin.set_fact:
+    _eda_github_username: "{{ lookup('ansible.builtin.env', 'GITHUB_USERNAME') }}"
+    _eda_github_token: "{{ lookup('ansible.builtin.env', 'GITHUB_TOKEN') }}"
+
+- name: "aap_config | Ensure generated password storage exists"
+  ansible.builtin.file:
+    path: "{{ aap_password_store_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: "aap_config | Resolve EDA service account password"
+  ansible.builtin.set_fact:
+    aap_eda_service_account_password: >-
+      {{
+        aap_eda_service_account_password
+        if (aap_eda_service_account_password | length > 0)
+        else lookup('ansible.builtin.password', aap_eda_service_account_password_store_file + ' length=24 chars=ascii_letters,digits')
+      }}
+  no_log: true
+
+- name: "aap_config | Fail if GitHub credentials are not set"
+  ansible.builtin.fail:
+    msg: |
+      Required environment variables are not set.
+      Please export both before running this playbook:
+        export GITHUB_USERNAME=<your_github_username>
+        export GITHUB_TOKEN=<your_github_personal_access_token>
+  when: _eda_github_username == '' or _eda_github_token == ''
+
+- name: "aap_config | Register Dynatrace Decision Environment in EDA"
+  ansible.eda.decision_environment:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_dt_de_name }}"
+    description: "{{ aap_dt_de_description }}"
+    image_url: "{{ aap_dt_de_image }}"
+    organization_name: "{{ aap_org_name }}"
+    state: present
+  register: _aap_eda_dt_de_result
+
+- name: "aap_config | Display Decision Environment registration result"
+  ansible.builtin.debug:
+    msg: "Dynatrace DE registered: {{ _aap_eda_dt_de_result.id | default('already present') }}"
+
+- name: "aap_config | Create EDA SCM credential for GitHub"
+  ansible.eda.credential:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_eda_scm_credential_name }}"
+    description: "GitHub PAT for EDA project source control"
+    credential_type_name: "Source Control"
+    inputs:
+      username: "{{ _eda_github_username }}"
+      password: "{{ _eda_github_token }}"
+    organization_name: "{{ aap_org_name }}"
+    state: present
+
+- name: "aap_config | Create EDA project"
+  ansible.eda.project:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_eda_project_name }}"
+    description: "{{ aap_eda_project_description }}"
+    url: "{{ aap_eda_project_url }}"
+    credential: "{{ aap_eda_scm_credential_name }}"
+    organization_name: "{{ aap_org_name }}"
+    state: present
+  register: _aap_eda_project_result
+
+- name: "aap_config | Display EDA project registration result"
+  ansible.builtin.debug:
+    msg: "EDA project registered: {{ _aap_eda_project_result.id | default('already present') }}"
+
+- name: "aap_config | Wait for EDA project sync to complete"
+  ansible.eda.project_info:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_eda_project_name }}"
+  register: _aap_eda_project_sync_result
+  until: _aap_eda_project_sync_result.projects[0].import_state in ['completed', 'failed']
+  retries: 30
+  delay: 10
+
+- name: "aap_config | Fail if EDA project sync did not complete successfully"
+  ansible.builtin.fail:
+    msg: "EDA project sync failed: {{ _aap_eda_project_sync_result.projects[0].import_error | default('unknown error') }}"
+  when: _aap_eda_project_sync_result.projects[0].import_state == 'failed'
+
+- name: "aap_config | Generate AAP Controller OAuth2 token for EDA credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host }}/api/controller/v2/tokens/"
+    method: POST
+    user: "{{ aap_eda_service_account_username }}"
+    password: "{{ aap_eda_service_account_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    body_format: json
+    body:
+      description: "EDA rulebook activation token (managed by configure_eda.yml)"
+      application: null
+      scope: "write"
+    status_code: 201
+  register: _aap_controller_token_result
+  no_log: true
+
+- name: "aap_config | Create EDA AAP credential for rulebook activation"
+  ansible.eda.credential:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_eda_aap_credential_name }}"
+    description: "AAP Controller credential for EDA rulebook activations"
+    credential_type_name: "Red Hat Ansible Automation Platform"
+    inputs:
+      host: "{{ aap_eda_aap_credential_host }}"
+      oauth_token: "{{ _aap_controller_token_result.json.token }}"
+    organization_name: "{{ aap_org_name }}"
+    state: present
+
+- name: "aap_config | Create EDA rulebook activation for Dynatrace webhook"
+  ansible.eda.rulebook_activation:
+    controller_host: "{{ aap_eda_controller_host }}"
+    controller_username: "{{ aap_eda_controller_username }}"
+    controller_password: "{{ aap_eda_controller_password }}"
+    validate_certs: "{{ aap_eda_controller_validate_certs }}"
+    name: "{{ aap_eda_activation_name }}"
+    description: "{{ aap_eda_activation_description }}"
+    project_name: "{{ aap_eda_project_name }}"
+    rulebook_name: "{{ aap_eda_activation_rulebook }}"
+    decision_environment_name: "{{ aap_dt_de_name }}"
+    organization_name: "{{ aap_org_name }}"
+    extra_vars: "{{ aap_eda_activation_extra_vars | to_nice_yaml }}"
+    eda_credentials:
+      - "{{ aap_eda_aap_credential_name }}"
+    state: "{{ 'enabled' if aap_eda_activation_enabled else 'disabled' }}"
+  register: _aap_eda_activation_result
+
+- name: "aap_config | Display EDA activation registration result"
+  ansible.builtin.debug:
+    msg: "EDA rulebook activation registered: {{ _aap_eda_activation_result.id | default('already present') }}"
+
+- name: "aap_config | Display EDA configuration summary"
+  ansible.builtin.debug:
+    msg:
+      - "Configured EDA Decision Environment: {{ aap_dt_de_name }}"
+      - "  Image: {{ aap_dt_de_image }}"
+      - "Configured EDA Project: {{ aap_eda_project_name }}"
+      - "  URL: {{ aap_eda_project_url }}"
+      - "Configured EDA Rulebook Activation: {{ aap_eda_activation_name }}"
+      - "  Rulebook: {{ aap_eda_activation_rulebook }}"
+      - "  Webhook port: {{ aap_eda_activation_dt_webhook_port }}"
+      - "  Enabled: {{ aap_eda_activation_enabled }}"

@@ -1,0 +1,46 @@
+---
+# =============================================================
+# Configure Dynatrace Playbook
+# Configures Dynatrace monitoring for the AI Inference App:
+#   - Pushes custom metadata tags
+#   - Creates/verifies synthetic health monitors
+#   - Registers custom metric descriptors
+#
+# Requires:
+#   DYNATRACE_API_URL  - e.g. https://<env-id>.live.dynatrace.com
+#   DYNATRACE_API_TOKEN - with permissions: metrics.ingest, entities.write,
+#                         syntheticExecutions.write, settings.write
+#
+# Usage:
+#   ansible-playbook automate/playbooks/configure_dynatrace.yml \
+#     -e "dynatrace_api_url=https://abc123.live.dynatrace.com" \
+#     -e "dynatrace_api_token=dt0c01.XXXX"
+# =============================================================
+
+- name: "Workshop | Configure Dynatrace Monitoring"
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: "Skip if Dynatrace credentials not provided"
+      ansible.builtin.debug:
+        msg: "Dynatrace API URL not set - skipping Dynatrace configuration"
+      when: dynatrace_api_url == ""
+
+    - name: "Configure Dynatrace monitoring"
+      when: dynatrace_api_url != ""
+      block:
+        - name: "Display Dynatrace configuration"
+          ansible.builtin.debug:
+            msg:
+              - "Dynatrace URL:  {{ dynatrace_api_url }}"
+              - "App:            {{ app_name }} v{{ app_version }}"
+              - "Environment:    {{ app_environment }}"
+
+        - name: "Configure Dynatrace via role"
+          ansible.builtin.include_role:
+            name: dynatrace_configure
+
+        - name: "Display Dynatrace configuration complete"
+          ansible.builtin.debug:
+            msg: "Dynatrace monitoring configured for '{{ app_name }}' v{{ app_version }}"

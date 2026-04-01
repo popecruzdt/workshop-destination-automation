@@ -1,0 +1,8 @@
+# Local Monaco binaries
+monaco-*
+
+# Monaco/AAP execution logs
+.logs/
+.logs/**
+
+config-list

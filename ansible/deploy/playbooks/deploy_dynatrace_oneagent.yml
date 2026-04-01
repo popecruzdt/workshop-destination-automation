@@ -1,0 +1,23 @@
+---
+# =============================================================
+# Deploy Dynatrace OneAgent on RHEL 9 x86 hosts
+# Uses direct download from Dynatrace environment (Option 1)
+#
+# Usage:
+#   export DYNATRACE_ENV_URL="https://<env>.live.dynatrace.com"
+#   export DYNATRACE_PAAS_TOKEN="<token>"
+#   ansible-playbook deploy/playbooks/deploy_dynatrace_oneagent.yml \
+#     -e target_hosts=destination-automation
+#
+# Optional pinned version:
+#   -e dynatrace_oneagent_version_mode=pinned \
+#   -e dynatrace_oneagent_pinned_version=1.335.30.20260323-151312
+# =============================================================
+
+- name: "Workshop | Deploy Dynatrace OneAgent"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: dynatrace_oneagent_deploy

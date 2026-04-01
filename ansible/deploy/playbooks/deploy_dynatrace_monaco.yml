@@ -1,0 +1,18 @@
+---
+# =============================================================
+# Deploy Dynatrace Monaco project configuration
+#
+# Requires:
+#   DT_PLATFORM_URL   - e.g. https://<env-id>.apps.dynatrace.com
+#   DT_PLATFORM_TOKEN - Dynatrace platform token for Monaco deploy
+#
+# Usage:
+#   ansible-playbook deploy/playbooks/deploy_dynatrace_monaco.yml
+# =============================================================
+
+- name: "Workshop | Deploy Dynatrace Monaco Configuration"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: dynatrace_monaco_config

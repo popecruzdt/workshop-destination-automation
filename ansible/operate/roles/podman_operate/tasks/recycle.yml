@@ -1,0 +1,231 @@
+---
+# podman_operate | recycle tasks
+# Recycles easyTravel application containers
+# Like restart, but forces recreation of the travel-advisor container
+# so that updated env vars (AI_MODEL, AI_TEMPERATURE, etc.) from the
+# deploy inventory are applied without a full re-deploy.
+# Idempotent: handles cases where containers don't exist or are already running
+
+- name: "podman_operate | recycle | Display recycle status"
+  ansible.builtin.debug:
+    msg:
+      - "Recycling easyTravel application stack..."
+      - "This will stop all containers, recreate travel-advisor with current env vars, and bring everything back up"
+
+- name: "podman_operate | recycle | Check if containers exist"
+  containers.podman.podman_container_info:
+    name: "{{ item }}"
+  loop:
+    - "{{ weaviate_name }}"
+    - "{{ ollama_name }}"
+    - "{{ travel_advisor_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ nginx_name }}"
+  register: container_info
+  failed_when: false
+  changed_when: false
+
+- name: "podman_operate | recycle | Extract existing containers"
+  ansible.builtin.set_fact:
+    existing_containers: "{{ container_info.results | selectattr('containers', 'ne', []) | map(attribute='item') | list }}"
+  changed_when: false
+  no_log: true
+
+- name: "podman_operate | recycle | Warn if no containers found"
+  ansible.builtin.debug:
+    msg: "⚠ WARNING: No containers found to recycle. Did you forget to deploy the app first?"
+  when: existing_containers | length == 0
+
+- name: "podman_operate | recycle | Gracefully stop all containers"
+  containers.podman.podman_container:
+    name: "{{ item }}"
+    state: stopped
+    stop_timeout: "{{ stop_timeout }}"
+  loop:
+    - "{{ nginx_name }}"
+    - "{{ travel_advisor_name }}"
+    - "{{ otel_collector_name }}"
+    - "{{ ollama_name }}"
+    - "{{ weaviate_name }}"
+  register: stop_result
+  failed_when: false
+  when: existing_containers | length > 0
+
+- name: "podman_operate | recycle | Pause between stop and start"
+  ansible.builtin.pause:
+    seconds: 2
+  when: existing_containers | length > 0
+
+- name: "podman_operate | recycle | Ensure Podman network exists"
+  containers.podman.podman_network:
+    name: "{{ network_name }}"
+    driver: bridge
+    state: present
+  when: existing_containers | length > 0
+
+- name: "podman_operate | recycle | Start Weaviate container"
+  containers.podman.podman_container:
+    name: "{{ weaviate_name }}"
+    state: started
+  when:
+    - weaviate_name in existing_containers
+    - existing_containers | length > 0
+  changed_when: true
+
+- name: "podman_operate | recycle | Start Ollama container"
+  containers.podman.podman_container:
+    name: "{{ ollama_name }}"
+    state: started
+  when:
+    - ollama_name in existing_containers
+    - existing_containers | length > 0
+  changed_when: true
+
+- name: "podman_operate | recycle | Wait for Ollama to be healthy (up to 2 minutes)"
+  containers.podman.podman_container_info:
+    name: "{{ ollama_name }}"
+  register: ollama_info
+  until: >
+    ollama_info.containers | length > 0 and
+    ollama_info.containers[0].State.Health.Status is defined and
+    ollama_info.containers[0].State.Health.Status == "healthy"
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
+  failed_when: false
+  when:
+    - ollama_name in existing_containers
+    - existing_containers | length > 0
+
+- name: "podman_operate | recycle | Verify Ollama is healthy"
+  ansible.builtin.fail:
+    msg: "Ollama container failed to reach healthy state. Current status: {{ ollama_info.containers[0].State.Health.Status | default('unknown') }}"
+  when:
+    - ollama_name in existing_containers
+    - existing_containers | length > 0
+    - ollama_info.containers | length == 0 or ollama_info.containers[0].State.Health.Status | default('') != "healthy"
+
+- name: "podman_operate | recycle | Pull LLM model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ travel_advisor_env.AI_MODEL }}"
+  register: ollama_pull
+  when:
+    - ollama_name in existing_containers
+    - existing_containers | length > 0
+
+- name: "podman_operate | recycle | Pull embedding model in Ollama"
+  containers.podman.podman_container_exec:
+    name: "{{ ollama_name }}"
+    command: "ollama pull {{ travel_advisor_env.AI_EMBEDDING_MODEL }}"
+  register: ollama_embedding_pull
+  when:
+    - ollama_name in existing_containers
+    - existing_containers | length > 0
+
+- name: "podman_operate | recycle | Start OpenTelemetry Collector container"
+  containers.podman.podman_container:
+    name: "{{ otel_collector_name }}"
+    state: started
+  when:
+    - otel_collector_name in existing_containers
+    - existing_containers | length > 0
+  changed_when: true
+
+- name: "podman_operate | recycle | Recreate easyTravel container with current env vars"
+  containers.podman.podman_container:
+    name: "{{ travel_advisor_name }}"
+    hostname: "{{ travel_advisor_name }}"
+    image: "{{ image_full }}"
+    state: started
+    recreate: true
+    network: "{{ network_name }}"
+    network_aliases:
+      - "{{ travel_advisor_name }}"
+    expose:
+      - "{{ travel_advisor_port }}"
+    env: "{{ travel_advisor_env }}"
+    volumes:
+      - "{{ app_config_path }}/destinations:/app/destinations:ro,Z"
+      - "{{ app_config_path }}/prompts:/app/prompts:ro,Z"
+      - "{{ app_config_path }}/src:/app/src:ro,Z"
+      - "{{ app_config_path }}/public:/app/public:ro,Z"
+    restart_policy: unless-stopped
+    labels:
+      app: "{{ app_name }}"
+      version: "{{ app_version }}"
+      environment: "{{ app_environment }}"
+      component: "application"
+  when:
+    - travel_advisor_name in existing_containers
+    - existing_containers | length > 0
+  changed_when: true
+
+- name: "podman_operate | recycle | Wait for easyTravel to stabilize"
+  ansible.builtin.pause:
+    seconds: "{{ easytravel_startup_delay }}"
+  when: existing_containers | length > 0
+
+- name: "podman_operate | recycle | Start Nginx reverse proxy container"
+  containers.podman.podman_container:
+    name: "{{ nginx_name }}"
+    state: started
+  when:
+    - nginx_name in existing_containers
+    - existing_containers | length > 0
+  changed_when: true
+
+- name: "podman_operate | recycle | Pause to allow stack to stabilize"
+  ansible.builtin.pause:
+    seconds: "{{ stack_stabilization_delay }}"
+  when: existing_containers | length > 0
+
+- name: "podman_operate | recycle | Perform health check"
+  ansible.builtin.uri:
+    url: "{{ health_check_url }}"
+    method: GET
+    status_code: 200
+  register: health_response
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
+  until: health_response.status == 200
+  failed_when: false
+  when:
+    - travel_advisor_name in existing_containers
+    - existing_containers | length > 0
+
+- name: "podman_operate | recycle | Display health check result"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Health status:      {{ health_response.json.status }}"
+      - "✓ Service:            {{ health_response.json.service }}"
+      - "✓ Version:            {{ health_response.json.version }}"
+      - "✓ Ollama model:       {{ health_response.json.ollama.model }}"
+      - "✓ Ollama connected:   {{ health_response.json.ollama.connected }}"
+      - "✓ Weaviate connected: {{ health_response.json.weaviate.connected }}"
+  when:
+    - health_response.status is defined and health_response.status == 200
+    - existing_containers | length > 0
+
+- name: "podman_operate | recycle | Confirm recycle complete"
+  ansible.builtin.debug:
+    msg:
+      - "✓ easyTravel application stack recycled successfully!"
+      - "✓ travel-advisor recreated with current env vars (AI_MODEL: {{ travel_advisor_env.AI_MODEL }}, AI_TEMPERATURE: {{ travel_advisor_env.AI_TEMPERATURE }})"
+      - "✓ Access the web UI at: http://localhost:{{ host_nginx_port }}"
+      - "✓ API endpoints available at: http://localhost:{{ host_nginx_port }}/api/v1"
+
+- name: "podman_operate | recycle | Reset FORCE_REINDEX to false after successful recycle"
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^\s{2}FORCE_REINDEX:\s'
+    line: '  FORCE_REINDEX: "false"'
+    backrefs: true
+  loop:
+    - "{{ playbook_dir | dirname | dirname }}/deploy/inventories/localhost/group_vars/all.yml"
+    - "/opt/ansible/aap/controller/projects/destination-automation/deploy/inventories/localhost/group_vars/all.yml"
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+  when:
+    - travel_advisor_name in existing_containers
+    - existing_containers | length > 0

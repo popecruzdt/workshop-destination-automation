@@ -1,0 +1,23 @@
+---
+# dynatrace_configure role - defaults
+
+# Dynatrace management zone name for the workshop
+dynatrace_management_zone_name: "Workshop - AI Inference"
+
+# Tags to apply to monitored entities
+dynatrace_entity_tags:
+  - "workshop"
+  - "ai-workload"
+  - "ansible-managed"
+  - "app:{{ app_name }}"
+  - "env:{{ app_environment }}"
+
+# Synthetic monitor settings
+dynatrace_synthetic_monitor_name: "{{ app_name }} - Health Check"
+dynatrace_synthetic_monitor_frequency: 5  # minutes
+
+# Application detection rule name
+dynatrace_app_detection_name: "{{ app_name }}"
+
+# Custom metric prefix
+dynatrace_metric_prefix: "ext:ai.inference"

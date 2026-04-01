@@ -1,0 +1,13 @@
+---
+# Remove easyTravel application image
+
+- name: "podman_clean | Remove application image"
+  containers.podman.podman_image:
+    name: "{{ podman_clean_image }}"
+    state: absent
+  failed_when: false
+
+- name: "podman_clean | Display image cleanup summary"
+  ansible.builtin.debug:
+    msg:
+      - "✓ Removed image (if present): {{ podman_clean_image }}"

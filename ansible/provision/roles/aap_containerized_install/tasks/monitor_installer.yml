@@ -1,0 +1,63 @@
+---
+- name: Increment installer monitor attempt
+  ansible.builtin.set_fact:
+    aap_install_monitor_attempt: "{{ (aap_install_monitor_attempt | default(0) | int) + 1 }}"
+
+- name: Pause before polling installer status
+  ansible.builtin.pause:
+    seconds: "{{ aap_installer_monitor_delay | int }}"
+  when: (aap_install_monitor_attempt | int) > 1
+
+- name: Check installer async job status
+  ansible.builtin.async_status:
+    jid: "{{ aap_install_async.ansible_job_id }}"
+  register: aap_install_async_status
+
+- name: Read recent installer log lines
+  ansible.builtin.command: >-
+    tail -n {{ aap_installer_log_tail_lines | int }} {{ aap_effective_installer_log_path }}
+  register: aap_install_log_tail
+  changed_when: false
+  failed_when: false
+
+- name: Show recent installer output
+  ansible.builtin.debug:
+    msg: |
+      AAP installer is still running.
+      Log file: {{ aap_effective_installer_log_path }}
+      Recent output:
+      {{ aap_install_log_tail.stdout | default('(installer log is not yet populated)') }}
+  when: not (aap_install_async_status.finished | bool)
+
+- name: Fail if installer monitoring timed out
+  ansible.builtin.fail:
+    msg: >-
+      AAP installer is still running after {{ aap_install_monitor_attempt }} polls.
+      Check {{ aap_effective_installer_log_path }} for current progress.
+  when:
+    - not (aap_install_async_status.finished | bool)
+    - (aap_install_monitor_attempt | int) >= (aap_installer_monitor_retries | int)
+
+- name: Continue monitoring installer
+  ansible.builtin.include_tasks: monitor_installer.yml
+  when:
+    - not (aap_install_async_status.finished | bool)
+    - (aap_install_monitor_attempt | int) < (aap_installer_monitor_retries | int)
+
+- name: Show final installer output snippet
+  ansible.builtin.debug:
+    msg: |
+      AAP installer finished.
+      Log file: {{ aap_effective_installer_log_path }}
+      Final output:
+      {{ aap_install_log_tail.stdout | default('(installer log is empty)') }}
+  when: aap_install_async_status.finished | bool
+
+- name: Fail when installer command returned a non-zero code
+  ansible.builtin.fail:
+    msg: >-
+      AAP installer failed with return code {{ aap_install_async_status.rc | default('unknown') }}.
+      See {{ aap_effective_installer_log_path }} for full details.
+  when:
+    - aap_install_async_status.finished | bool
+    - (aap_install_async_status.rc | default(1) | int) != 0

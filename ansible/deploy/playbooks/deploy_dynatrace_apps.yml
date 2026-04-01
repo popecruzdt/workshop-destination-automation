@@ -1,0 +1,18 @@
+---
+# =============================================================
+# Install Dynatrace AppEngine apps via platform App Registry API
+#
+# Requires (injected by Dynatrace Monaco credential):
+#   DT_PLATFORM_URL   - e.g. https://<env-id>.apps.dynatrace.com
+#   DT_PLATFORM_TOKEN - platform token with app-engine:apps:install scope
+#
+# Usage:
+#   ansible-playbook deploy/playbooks/deploy_dynatrace_apps.yml
+# =============================================================
+
+- name: "Workshop | Install Dynatrace AppEngine Apps"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: dynatrace_app_registry

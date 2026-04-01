@@ -1,0 +1,24 @@
+---
+# =============================================================
+# Start App Playbook
+# Starts existing easyTravel application containers.
+# Assumes containers already exist (run deploy_app.yml first).
+# Does NOT rebuild images or re-pull the LLM model.
+#
+# Usage:
+#   ansible-playbook operate/playbooks/start_app.yml
+# =============================================================
+
+- name: "Workshop | Start easyTravel Application Stack"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../../deploy/inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Start application stack with podman_operate role"
+      ansible.builtin.include_role:
+        name: podman_operate
+      vars:
+        podman_operate_action: start

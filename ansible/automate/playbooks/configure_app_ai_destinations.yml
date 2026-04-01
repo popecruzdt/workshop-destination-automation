@@ -1,0 +1,22 @@
+---
+# =============================================================
+# Configure App AI Destinations
+#
+# Generates destination HTML files for the travel-advisor app
+# from a list of destination names and details provided at runtime.
+#
+# Each destination becomes a <name>.html file in the app's
+# destinations/ directory, which is loaded by the travel-advisor
+# container as RAG context for travel advice queries.
+#
+# Usage:
+#   ansible-playbook automate/playbooks/configure_app_ai_destinations.yml \
+#     -e '{"travel_destinations": [{"name": "London", "details": "London is..."}]}'
+# =============================================================
+
+- name: "Workshop | Configure App AI Destinations"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: app_ai_destinations

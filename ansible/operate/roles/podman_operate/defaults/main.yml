@@ -1,0 +1,20 @@
+---
+# podman_operate role - defaults
+
+# Operation to perform: start, stop, restart, or recycle
+podman_operate_action: "start"
+
+# Application configuration path — used by recycle to mount volumes into travel-advisor
+app_config_path: "{{ (destination_automation_base_dir | default((playbook_dir | dirname | dirname | dirname), true)) ~ '/app' }}"
+
+# Health check settings
+health_check_timeout: 120
+health_check_retries: 12
+health_check_delay: 10
+
+# Container startup delays to allow services to stabilize
+easytravel_startup_delay: 3
+stack_stabilization_delay: 5
+
+# Graceful stop timeout
+stop_timeout: 30

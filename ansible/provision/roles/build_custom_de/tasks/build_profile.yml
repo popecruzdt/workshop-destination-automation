@@ -1,0 +1,132 @@
+---
+- name: "build_custom_de | Create profile working directory"
+  ansible.builtin.file:
+    path: "{{ de_build_work_dir }}/{{ de_profile.key }}"
+    state: directory
+    mode: '0755'
+
+- name: "build_custom_de | Copy execution-environment.yml for {{ de_profile.name }}"
+  ansible.builtin.template:
+    src: execution-environment.yml.j2
+    dest: "{{ de_build_work_dir }}/{{ de_profile.key }}/execution-environment.yml"
+    mode: '0644'
+
+- name: "build_custom_de | Copy requirements.yml for {{ de_profile.name }}"
+  ansible.builtin.template:
+    src: requirements.yml.j2
+    dest: "{{ de_build_work_dir }}/{{ de_profile.key }}/requirements.yml"
+    mode: '0644'
+
+- name: "build_custom_de | Display build configuration for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg:
+      - "Building decision environment profile: {{ de_profile.name }}"
+      - "Description: {{ de_profile.description }}"
+      - "ansible-builder: {{ de_builder_version.stdout | default('unknown') }}"
+      - "Base image: {{ de_profile.base_image }}"
+      - "Output image: {{ de_profile.output_image }}"
+      - "Collections: {{ (de_profile.collections | map(attribute='name') | list | join(', ')) if (de_profile.collections | length > 0) else 'none (base image only)' }}"
+      - "Work directory: {{ de_build_work_dir }}/{{ de_profile.key }}"
+
+- name: "build_custom_de | Display rendered requirements.yml for {{ de_profile.name }}"
+  ansible.builtin.command:
+    cmd: "cat {{ de_build_work_dir }}/{{ de_profile.key }}/requirements.yml"
+  register: de_requirements_content
+  changed_when: false
+  become: true
+
+- name: "build_custom_de | Log rendered requirements for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ de_requirements_content.stdout }}"
+
+- name: "build_custom_de | Display rendered execution-environment.yml for {{ de_profile.name }}"
+  ansible.builtin.command:
+    cmd: "cat {{ de_build_work_dir }}/{{ de_profile.key }}/execution-environment.yml"
+  register: de_definition_content
+  changed_when: false
+  become: true
+
+- name: "build_custom_de | Log rendered DE definition for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ de_definition_content.stdout }}"
+
+- name: "build_custom_de | Build custom DE image for {{ de_profile.name }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ de_builder_cmd }}"
+      - build
+      - --file
+      - "{{ de_build_work_dir }}/{{ de_profile.key }}/execution-environment.yml"
+      - --container-runtime=podman
+      - --context
+      - "{{ de_build_work_dir }}/{{ de_profile.key }}/context"
+      - --tag
+      - "{{ de_profile.output_image }}"
+      - --no-cache
+      - -v
+      - "{{ de_builder_verbosity | string }}"
+    chdir: "{{ de_build_work_dir }}/{{ de_profile.key }}"
+  register: de_build_result
+  become: true
+  changed_when: true
+
+- name: "build_custom_de | Display ansible-builder output for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ de_build_result.stdout_lines }}"
+  when: de_build_result.stdout_lines is defined
+
+- name: "build_custom_de | Log any build warnings for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ de_build_result.stderr_lines }}"
+  when:
+    - de_build_result.stderr_lines is defined
+    - de_build_result.stderr_lines | length > 0
+
+- name: "build_custom_de | Verify built image exists locally for {{ de_profile.name }}"
+  ansible.builtin.command:
+    cmd: "podman image inspect {{ de_profile.output_image }}"
+  register: de_image_check
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: "build_custom_de | Fail if image was not built for {{ de_profile.name }}"
+  ansible.builtin.fail:
+    msg: "Failed to build custom DE image. ansible-builder did not produce {{ de_profile.output_image }}"
+  when: de_image_check.rc != 0
+
+- name: "build_custom_de | Tag image for Hub registry for {{ de_profile.name }}"
+  ansible.builtin.command:
+    cmd: "podman tag {{ de_profile.output_image }} {{ de_profile.registry_image }}"
+  become: true
+  when: de_push_to_registry
+
+- name: "build_custom_de | Push image to local Hub registry for {{ de_profile.name }}"
+  ansible.builtin.command:
+    cmd: >
+      podman push {{ de_profile.registry_image }}
+      --tls-verify={{ de_registry_validate_certs | ternary('true', 'false') }}
+  become: true
+  register: de_push_result
+  when: de_push_to_registry
+
+- name: "build_custom_de | Display push result for {{ de_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ de_push_result.stdout_lines }}"
+  when:
+    - de_push_to_registry
+    - de_push_result.stdout_lines is defined
+
+- name: "build_custom_de | Record build summary for {{ de_profile.name }}"
+  ansible.builtin.set_fact:
+    de_build_profile_summaries: >-
+      {{
+        de_build_profile_summaries +
+        [
+          {
+            'name': de_profile.name,
+            'output_image': de_profile.output_image,
+            'registry_summary': de_profile.registry_image if de_push_to_registry else 'skipped (DE_PUSH_TO_REGISTRY=false)'
+          }
+        ]
+      }}

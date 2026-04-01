@@ -1,0 +1,18 @@
+---
+# =============================================================
+# Configure AI OpenFeature Flags (Remediate)
+#
+# Remediates AI embedding model drift by resetting to the
+# correct model via the app OpenFeature API.
+#
+# Usage:
+#   ansible-playbook remediate/playbooks/configure_app_ai_openfeature.yml \
+#     -e "target_hosts=workshop"
+# =============================================================
+
+- name: "Workshop | Remediate AI OpenFeature Flags"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  roles:
+    - role: ../roles/app_ai_openfeature

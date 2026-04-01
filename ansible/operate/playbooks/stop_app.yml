@@ -1,0 +1,24 @@
+---
+# =============================================================
+# Stop App Playbook
+# Gracefully stops all easyTravel application containers.
+# Preserves volumes, images, and the Podman network.
+# Run start_app.yml to bring containers back up.
+#
+# Usage:
+#   ansible-playbook operate/playbooks/stop_app.yml
+# =============================================================
+
+- name: "Workshop | Stop easyTravel Application Stack"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../../deploy/inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Stop application stack with podman_operate role"
+      ansible.builtin.include_role:
+        name: podman_operate
+      vars:
+        podman_operate_action: stop

@@ -1,0 +1,62 @@
+---
+# =============================================================
+# Deploy App Playbook
+# Deploys the easyTravel AI Travel Advisor application stack
+# using Podman collection modules (Red Hat Ansible Automation
+# Platform certified approach).
+#
+# Usage:
+#   ansible-playbook deploy/playbooks/deploy_app.yml
+# =============================================================
+
+- name: "Workshop | Deploy easyTravel Application Stack"
+  hosts: "{{ target_hosts | default('localhost') }}"
+  gather_facts: false
+
+  vars_files:
+    - "../inventories/localhost/group_vars/all.yml"
+
+  tasks:
+    - name: "Display deployment configuration"
+      ansible.builtin.debug:
+        msg:
+          - "Application:        {{ app_name }} v{{ app_version }}"
+          - "Image:              {{ image_full }}"
+          - "AI Model:           {{ travel_advisor_env.AI_MODEL }}"
+          - "AI Temperature:     {{ travel_advisor_env.AI_TEMPERATURE }}"
+          - "Observability:      {{ travel_advisor_env.OPENLLMETRY_ENABLED }}"
+          - "Network:            {{ network_name }}"
+          - "Environment:        {{ app_environment }}"
+          - "Access URL:         http://localhost:{{ host_nginx_port }}"
+
+    - name: "Deploy application stack with Podman collection modules"
+      ansible.builtin.include_role:
+        name: podman_deploy
+
+    - name: "Wait for application to become healthy"
+      ansible.builtin.uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: health_response
+      retries: "{{ health_check_retries }}"
+      delay: "{{ health_check_delay }}"
+      until: health_response.status == 200
+
+    - name: "Display health check result"
+      ansible.builtin.debug:
+        msg:
+          - "✓ Health status:     {{ health_response.json.status }}"
+          - "✓ Service:           {{ health_response.json.service }}"
+          - "✓ Version:           {{ health_response.json.version }}"
+          - "✓ Ollama model:      {{ health_response.json.ollama.model }}"
+          - "✓ Ollama connected:  {{ health_response.json.ollama.connected }}"
+          - "✓ Weaviate connected:{{ health_response.json.weaviate.connected }}"
+
+    - name: "Confirm deployment success"
+      ansible.builtin.debug:
+        msg:
+          - "✓ easyTravel application stack deployed successfully!"
+          - "✓ Access the web UI at: http://localhost:{{ host_nginx_port }}"
+          - "✓ API endpoints available at: http://localhost:{{ host_nginx_port }}/api/v1"

@@ -1,0 +1,8 @@
+---
+- name: Prepare and install AAP 2.6 containerized (all-in-one)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  roles:
+    - role: aap_containerized_install

@@ -1,0 +1,58 @@
+---
+- name: Validate installer source is provided
+  ansible.builtin.assert:
+    that:
+      - aap_installer_url | length > 0 or aap_installer_local_path | length > 0
+    fail_msg: >-
+      Provide either AAP_INSTALLER_URL or AAP_INSTALLER_LOCAL_PATH before running
+      provision/playbooks/install_aap_containerized.yml.
+
+- name: Ensure install user exists on host
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ aap_install_user }}"
+
+- name: Validate public hostname is provided
+  ansible.builtin.assert:
+    that:
+      - aap_public_hostname | length > 0
+    fail_msg: >-
+      AAP_PUBLIC_HOSTNAME is required for gateway_hostname and gateway_api_url.
+
+- name: Ensure install directory exists before space check
+  ansible.builtin.file:
+    path: "{{ aap_install_dir }}"
+    state: directory
+    owner: "{{ aap_install_user }}"
+    group: "{{ aap_install_user }}"
+    mode: "0755"
+
+- name: Validate install directory free space in MB
+  ansible.builtin.command: "df -Pm {{ aap_install_dir }}"
+  register: aap_df_install_dir
+  changed_when: false
+
+- name: Parse install directory free space
+  ansible.builtin.set_fact:
+    aap_install_dir_free_mb: "{{ ((aap_df_install_dir.stdout_lines[1].split()[3] if (aap_df_install_dir.stdout_lines | length > 1) else '0') | int) }}"
+
+- name: Assert install directory has required free space
+  ansible.builtin.assert:
+    that:
+      - (aap_install_dir_free_mb | int) >= (aap_min_install_dir_mb | int)
+    fail_msg: >-
+      {{ aap_install_dir }} has {{ aap_install_dir_free_mb }} MB free; at least
+      {{ aap_min_install_dir_mb }} MB is required for installer workspace.
+
+- name: Check hostname is FQDN
+  ansible.builtin.command: hostname -f
+  register: aap_hostname_fqdn_cmd
+  changed_when: false
+
+- name: Assert hostname is FQDN-like
+  ansible.builtin.assert:
+    that:
+      - "'.' in (aap_hostname_fqdn_cmd.stdout | trim)"
+    fail_msg: >-
+      Hostname must be FQDN. Set AAP_FQDN and run with AAP_FORCE_SET_HOSTNAME=true,
+      or set hostname manually with hostnamectl.

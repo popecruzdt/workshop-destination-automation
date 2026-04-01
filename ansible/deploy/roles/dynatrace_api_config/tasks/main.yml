@@ -1,0 +1,386 @@
+---
+- name: "dynatrace_api_config | Validate required platform credentials"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_api_config_platform_url | length > 0
+      - dynatrace_api_config_platform_token | length > 0
+      - dynatrace_api_config_platform_token != 'REPLACE_ME'
+    fail_msg: >-
+      DT_PLATFORM_URL and DT_PLATFORM_TOKEN must be set before running this role.
+      Ensure the Dynatrace Monaco credential is attached to this job template.
+
+- name: "dynatrace_api_config | Build preferred and fallback Settings API URLs"
+  ansible.builtin.set_fact:
+    _settings_api_preferred_url: >-
+      {{
+        dynatrace_api_config_platform_url | regex_replace('/$', '')
+      }}{{ dynatrace_api_config_settings_api_preferred_path }}
+    _settings_api_fallback_url: >-
+      {{
+        dynatrace_api_config_platform_url | regex_replace('/$', '')
+      }}{{ dynatrace_api_config_settings_api_fallback_path }}
+
+- name: "dynatrace_api_config | Probe preferred Settings API endpoint"
+  ansible.builtin.uri:
+    url: >-
+      {{ _settings_api_preferred_url }}?schemaIds={{ dynatrace_api_config_settings_api_probe_schema }}
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    return_content: true
+    status_code: [200, 400, 401, 403, 404]
+  register: _settings_api_preferred_probe
+
+- name: "dynatrace_api_config | Probe fallback Settings API endpoint when preferred is unavailable"
+  ansible.builtin.uri:
+    url: >-
+      {{ _settings_api_fallback_url }}?schemaIds={{ dynatrace_api_config_settings_api_probe_schema }}
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    return_content: true
+    status_code: [200, 400, 401, 403, 404]
+  register: _settings_api_fallback_probe
+  when: _settings_api_preferred_probe.status != 200
+
+- name: "dynatrace_api_config | Select active Settings API endpoint"
+  ansible.builtin.set_fact:
+    dynatrace_api_config_settings_api_base_url: >-
+      {{
+        _settings_api_preferred_url
+        if _settings_api_preferred_probe.status == 200
+        else _settings_api_fallback_url
+      }}
+
+- name: "dynatrace_api_config | Fail when neither Settings API endpoint is usable"
+  ansible.builtin.assert:
+    that:
+      - _settings_api_preferred_probe.status == 200 or ((_settings_api_fallback_probe.status | default(0) | int) == 200)
+    fail_msg: >-
+      Unable to access Dynatrace Settings API with either endpoint.
+      Preferred {{ _settings_api_preferred_url }} returned status {{ _settings_api_preferred_probe.status }}
+      (message={{ _settings_api_preferred_probe.msg | default('n/a') }}).
+      Fallback {{ _settings_api_fallback_url }} returned status {{ _settings_api_fallback_probe.status | default('not attempted') }}
+      (message={{ _settings_api_fallback_probe.msg | default('n/a') }}).
+
+- name: "dynatrace_api_config | Display selected Settings API endpoint"
+  ansible.builtin.debug:
+    msg: >-
+      Using Dynatrace Settings API endpoint: {{ dynatrace_api_config_settings_api_base_url }}
+
+# ============================================================
+# builtin:dt-javascript-runtime.allowed-outbound-connections
+# ============================================================
+
+- name: "dynatrace_api_config | Get JS runtime outbound connections setting"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}?schemaIds=builtin:dt-javascript-runtime.allowed-outbound-connections"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    status_code: 200
+  register: _js_outbound_get_result
+
+- name: "dynatrace_api_config | Assert JS runtime outbound setting exists"
+  ansible.builtin.assert:
+    that:
+      - (_js_outbound_get_result.json['items'] | default([]) | length) > 0
+    fail_msg: >-
+      No settings object found for schema builtin:dt-javascript-runtime.allowed-outbound-connections.
+
+- name: "dynatrace_api_config | Set JS outbound connection facts"
+  ansible.builtin.set_fact:
+    _js_outbound_object_id: "{{ _js_outbound_get_result.json['items'][0].objectId }}"
+    _js_outbound_enforced: "{{ _js_outbound_get_result.json['items'][0].value.allowedOutboundConnections.enforced | default(false) }}"
+    _js_outbound_host_list: "{{ _js_outbound_get_result.json['items'][0].value.allowedOutboundConnections.hostList | default([]) }}"
+
+- name: "dynatrace_api_config | Display current JS outbound connections setting"
+  ansible.builtin.debug:
+    msg: >-
+      JS runtime outbound connections — enforced: {{ _js_outbound_enforced }},
+      hostList: {{ _js_outbound_host_list }}
+
+- name: "dynatrace_api_config | No action required — outbound connection limiting is not enforced"
+  ansible.builtin.debug:
+    msg: >-
+      Outbound connection limiting is not enforced (enforced=false).
+      No changes required.
+  when: not _js_outbound_enforced
+
+- name: "dynatrace_api_config | No changes required — {{ ansible_fqdn }} already in allowlist"
+  ansible.builtin.debug:
+    msg: >-
+      {{ ansible_fqdn }} is already present in the JS runtime outbound connections allowlist.
+      No changes required.
+  when: _js_outbound_enforced and ansible_fqdn in _js_outbound_host_list
+
+- name: "dynatrace_api_config | Build updated hostList including {{ ansible_fqdn }}"
+  ansible.builtin.set_fact:
+    _js_outbound_new_host_list: "{{ _js_outbound_host_list + [ansible_fqdn] }}"
+  when: _js_outbound_enforced and ansible_fqdn not in _js_outbound_host_list
+
+- name: "dynatrace_api_config | Add {{ ansible_fqdn }} to JS outbound connections allowlist"
+  ansible.builtin.uri:
+    url: >-
+      {{ dynatrace_api_config_settings_api_base_url }}/{{ _js_outbound_object_id }}
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      value:
+        allowedOutboundConnections:
+          enforced: true
+          hostList: "{{ _js_outbound_new_host_list }}"
+    status_code: 200
+  register: _js_outbound_put_result
+  when: _js_outbound_enforced and ansible_fqdn not in _js_outbound_host_list
+
+- name: "dynatrace_api_config | Display JS outbound connections update result"
+  ansible.builtin.debug:
+    msg: >-
+      Added {{ ansible_fqdn }} to the JS runtime outbound connections allowlist.
+      Updated hostList: {{ _js_outbound_new_host_list }}
+  when: _js_outbound_enforced and ansible_fqdn not in _js_outbound_host_list
+
+# ============================================================
+# app:dynatrace.redhat.ansible:eda-webhook.connection
+# ============================================================
+
+- name: "dynatrace_api_config | Validate EDA connection settings"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_api_config_eda_connection_url | length > 0
+      - dynatrace_api_config_eda_connection_token | length > 0
+    fail_msg: >-
+      dynatrace_api_config_eda_connection_url and dynatrace_api_config_eda_connection_token
+      must be provided via job template extra_vars.
+
+- name: "dynatrace_api_config | Get existing EDA webhook connection settings"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}?schemaIds=app:dynatrace.redhat.ansible:eda-webhook.connection"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    status_code: 200
+  register: _eda_connection_get_result
+
+- name: "dynatrace_api_config | Find existing EDA connection object by name"
+  ansible.builtin.set_fact:
+    _eda_connection_existing: >-
+      {{
+        _eda_connection_get_result.json['items']
+        | selectattr('value.name', 'equalto', dynatrace_api_config_eda_connection_name)
+        | list
+      }}
+
+- name: "dynatrace_api_config | Build desired EDA webhook connection value"
+  ansible.builtin.set_fact:
+    _eda_connection_desired_value:
+      eventStreamEnabled: "{{ dynatrace_api_config_eda_connection_event_stream_enabled }}"
+      name: "{{ dynatrace_api_config_eda_connection_name }}"
+      token: "{{ dynatrace_api_config_eda_connection_token }}"
+      type: "{{ dynatrace_api_config_eda_connection_type }}"
+      url: "{{ dynatrace_api_config_eda_connection_url }}"
+
+- name: "dynatrace_api_config | Record current EDA connection value when object exists"
+  ansible.builtin.set_fact:
+    _eda_connection_current_value: "{{ _eda_connection_existing[0].value }}"
+  when: _eda_connection_existing | length > 0
+
+- name: "dynatrace_api_config | Update existing EDA webhook connection '{{ dynatrace_api_config_eda_connection_name }}'"
+  ansible.builtin.uri:
+    url: >-
+      {{ dynatrace_api_config_settings_api_base_url }}/{{ _eda_connection_existing[0].objectId }}
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      value: "{{ _eda_connection_desired_value }}"
+    status_code: 200
+  register: _eda_connection_put_result
+  no_log: true
+  when:
+    - _eda_connection_existing | length > 0
+    - _eda_connection_current_value != _eda_connection_desired_value
+
+- name: "dynatrace_api_config | No changes required — existing EDA connection already matches desired values"
+  ansible.builtin.debug:
+    msg: >-
+      EDA webhook connection '{{ dynatrace_api_config_eda_connection_name }}' already matches desired settings
+      (objectId: {{ _eda_connection_existing[0].objectId }}).
+      No changes required.
+  when:
+    - _eda_connection_existing | length > 0
+    - _eda_connection_current_value == _eda_connection_desired_value
+
+- name: "dynatrace_api_config | Display EDA connection update result"
+  ansible.builtin.debug:
+    msg: >-
+      Updated EDA webhook connection '{{ dynatrace_api_config_eda_connection_name }}'
+      (objectId: {{ _eda_connection_existing[0].objectId }}).
+  when:
+    - _eda_connection_existing | length > 0
+    - _eda_connection_current_value != _eda_connection_desired_value
+
+- name: "dynatrace_api_config | Create EDA webhook connection '{{ dynatrace_api_config_eda_connection_name }}'"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      - schemaId: "app:dynatrace.redhat.ansible:eda-webhook.connection"
+        value: "{{ _eda_connection_desired_value }}"
+    status_code: 200
+  register: _eda_connection_post_result
+  no_log: true
+  when: _eda_connection_existing | length == 0
+
+- name: "dynatrace_api_config | Display EDA connection creation result"
+  ansible.builtin.debug:
+    msg: >-
+      Created EDA webhook connection '{{ dynatrace_api_config_eda_connection_name }}'.
+      objectId: {{ _eda_connection_post_result.json[0].objectId }}
+  when: _eda_connection_existing | length == 0
+
+# ============================================================
+# builtin:service-detection.full-web-request
+# ============================================================
+
+- name: "dynatrace_api_config | Get existing full web request service detection settings"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}?schemaIds=builtin:service-detection.full-web-request"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    status_code: 200
+  register: _service_detection_get_result
+  when: dynatrace_api_config_service_detection_enabled
+
+- name: "dynatrace_api_config | Find existing full web request service detection object by name"
+  ansible.builtin.set_fact:
+    _service_detection_existing: >-
+      {{
+        _service_detection_get_result.json['items']
+        | selectattr('value.name', 'equalto', dynatrace_api_config_service_detection_name)
+        | list
+      }}
+  when: dynatrace_api_config_service_detection_enabled
+
+- name: "dynatrace_api_config | Build desired service detection setting value"
+  ansible.builtin.set_fact:
+    _service_detection_desired_value:
+      enabled: true
+      name: "{{ dynatrace_api_config_service_detection_name }}"
+      description: "{{ dynatrace_api_config_service_detection_description }}"
+      idContributors:
+        applicationId:
+          enableIdContributor: false
+        contextRoot:
+          enableIdContributor: true
+          serviceIdContributor:
+            contributionType: "OverrideValue"
+            valueOverride:
+              value: "/"
+        serverName:
+          enableIdContributor: true
+          serviceIdContributor:
+            contributionType: "OverrideValue"
+            valueOverride:
+              value: "travel-advisor"
+      conditions:
+        - attribute: "ApplicationId"
+          compareOperationType: "StringEquals"
+          textValues:
+            - "{{ dynatrace_api_config_service_detection_application_id }}"
+          ignoreCase: true
+  when: dynatrace_api_config_service_detection_enabled
+
+- name: "dynatrace_api_config | Record current service detection value when object exists"
+  ansible.builtin.set_fact:
+    _service_detection_current_value: "{{ _service_detection_existing[0].value }}"
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length > 0
+
+- name: "dynatrace_api_config | Update service detection setting '{{ dynatrace_api_config_service_detection_name }}'"
+  ansible.builtin.uri:
+    url: >-
+      {{ dynatrace_api_config_settings_api_base_url }}/{{ _service_detection_existing[0].objectId }}
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      value: "{{ _service_detection_desired_value }}"
+    status_code: 200
+  register: _service_detection_put_result
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length > 0
+    - _service_detection_current_value != _service_detection_desired_value
+
+- name: "dynatrace_api_config | No changes required — service detection setting already matches desired values"
+  ansible.builtin.debug:
+    msg: >-
+      Service detection setting '{{ dynatrace_api_config_service_detection_name }}' already matches desired settings
+      (objectId: {{ _service_detection_existing[0].objectId }}).
+      No changes required.
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length > 0
+    - _service_detection_current_value == _service_detection_desired_value
+
+- name: "dynatrace_api_config | Display service detection update result"
+  ansible.builtin.debug:
+    msg: >-
+      Updated service detection setting '{{ dynatrace_api_config_service_detection_name }}'
+      (objectId: {{ _service_detection_existing[0].objectId }}).
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length > 0
+    - _service_detection_current_value != _service_detection_desired_value
+
+- name: "dynatrace_api_config | Create service detection setting '{{ dynatrace_api_config_service_detection_name }}'"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      - schemaId: "builtin:service-detection.full-web-request"
+        scope: "environment"
+        value: "{{ _service_detection_desired_value }}"
+    status_code: 200
+  register: _service_detection_post_result
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length == 0
+
+- name: "dynatrace_api_config | Display service detection creation result"
+  ansible.builtin.debug:
+    msg: >-
+      Created service detection setting '{{ dynatrace_api_config_service_detection_name }}'.
+      objectId: {{ _service_detection_post_result.json[0].objectId }}
+  when:
+    - dynatrace_api_config_service_detection_enabled
+    - _service_detection_existing | length == 0

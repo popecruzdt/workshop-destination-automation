@@ -1,0 +1,32 @@
+---
+- name: "dynatrace_app_registry | Validate required platform credentials"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_app_registry_platform_url | length > 0
+      - dynatrace_app_registry_platform_token | length > 0
+      - dynatrace_app_registry_platform_token != 'REPLACE_ME'
+    fail_msg: >-
+      DT_PLATFORM_URL and DT_PLATFORM_TOKEN must be set before running this role.
+      Ensure the Dynatrace Monaco credential is attached to this job template.
+
+- name: "dynatrace_app_registry | Validate dynatrace_app_registry_apps is a list"
+  ansible.builtin.assert:
+    that:
+      - dynatrace_app_registry_apps is sequence
+      - dynatrace_app_registry_apps is not string
+      - dynatrace_app_registry_apps is not mapping
+    fail_msg: >-
+      dynatrace_app_registry_apps must be a list of Dynatrace app ID strings.
+      Example: ["dynatrace.edgeconnect.management"]
+
+- name: "dynatrace_app_registry | No app IDs provided, nothing to do"
+  ansible.builtin.debug:
+    msg: "dynatrace_app_registry_apps is empty — no apps to install, nothing to do."
+  when: dynatrace_app_registry_apps | length == 0
+
+- name: "dynatrace_app_registry | Ensure apps are installed"
+  ansible.builtin.include_tasks: ensure_app.yml
+  vars:
+    _dt_app_id: "{{ item }}"
+  loop: "{{ dynatrace_app_registry_apps }}"
+  when: dynatrace_app_registry_apps | length > 0

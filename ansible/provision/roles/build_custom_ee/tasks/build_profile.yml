@@ -1,0 +1,132 @@
+---
+- name: "build_custom_ee | Create profile working directory"
+  ansible.builtin.file:
+    path: "{{ ee_build_work_dir }}/{{ ee_profile.key }}"
+    state: directory
+    mode: '0755'
+
+- name: "build_custom_ee | Copy execution-environment.yml for {{ ee_profile.name }}"
+  ansible.builtin.template:
+    src: execution-environment.yml.j2
+    dest: "{{ ee_build_work_dir }}/{{ ee_profile.key }}/execution-environment.yml"
+    mode: '0644'
+
+- name: "build_custom_ee | Copy requirements.yml for {{ ee_profile.name }}"
+  ansible.builtin.template:
+    src: requirements.yml.j2
+    dest: "{{ ee_build_work_dir }}/{{ ee_profile.key }}/requirements.yml"
+    mode: '0644'
+
+- name: "build_custom_ee | Display build configuration for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg:
+      - "Building execution environment profile: {{ ee_profile.name }}"
+      - "Description: {{ ee_profile.description }}"
+      - "ansible-builder: {{ ee_builder_version.stdout | default('unknown') }}"
+      - "Base image: {{ ee_profile.base_image }}"
+      - "Output image: {{ ee_profile.output_image }}"
+      - "Collections: {{ (ee_profile.collections | map(attribute='name') | list | join(', ')) if (ee_profile.collections | length > 0) else 'none (base image only)' }}"
+      - "Work directory: {{ ee_build_work_dir }}/{{ ee_profile.key }}"
+
+- name: "build_custom_ee | Display rendered requirements.yml for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    cmd: "cat {{ ee_build_work_dir }}/{{ ee_profile.key }}/requirements.yml"
+  register: ee_requirements_content
+  changed_when: false
+  become: true
+
+- name: "build_custom_ee | Log rendered requirements for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ ee_requirements_content.stdout }}"
+
+- name: "build_custom_ee | Display rendered execution-environment.yml for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    cmd: "cat {{ ee_build_work_dir }}/{{ ee_profile.key }}/execution-environment.yml"
+  register: ee_definition_content
+  changed_when: false
+  become: true
+
+- name: "build_custom_ee | Log rendered EE definition for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ ee_definition_content.stdout }}"
+
+- name: "build_custom_ee | Build custom EE image for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ ee_builder_cmd }}"
+      - build
+      - --file
+      - "{{ ee_build_work_dir }}/{{ ee_profile.key }}/execution-environment.yml"
+      - --container-runtime=podman
+      - --context
+      - "{{ ee_build_work_dir }}/{{ ee_profile.key }}/context"
+      - --tag
+      - "{{ ee_profile.output_image }}"
+      - --no-cache
+      - -v
+      - "{{ ee_builder_verbosity | string }}"
+    chdir: "{{ ee_build_work_dir }}/{{ ee_profile.key }}"
+  register: ee_build_result
+  become: true
+  changed_when: true
+
+- name: "build_custom_ee | Display ansible-builder output for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ ee_build_result.stdout_lines }}"
+  when: ee_build_result.stdout_lines is defined
+
+- name: "build_custom_ee | Log any build warnings for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ ee_build_result.stderr_lines }}"
+  when:
+    - ee_build_result.stderr_lines is defined
+    - ee_build_result.stderr_lines | length > 0
+
+- name: "build_custom_ee | Verify built image exists locally for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    cmd: "podman image inspect {{ ee_profile.output_image }}"
+  register: ee_image_check
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: "build_custom_ee | Fail if image was not built for {{ ee_profile.name }}"
+  ansible.builtin.fail:
+    msg: "Failed to build custom EE image. ansible-builder did not produce {{ ee_profile.output_image }}"
+  when: ee_image_check.rc != 0
+
+- name: "build_custom_ee | Tag image for Hub registry for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    cmd: "podman tag {{ ee_profile.output_image }} {{ ee_profile.registry_image }}"
+  become: true
+  when: ee_push_to_registry
+
+- name: "build_custom_ee | Push image to local Hub registry for {{ ee_profile.name }}"
+  ansible.builtin.command:
+    cmd: >
+      podman push {{ ee_profile.registry_image }}
+      --tls-verify={{ ee_registry_validate_certs | ternary('true', 'false') }}
+  become: true
+  register: ee_push_result
+  when: ee_push_to_registry
+
+- name: "build_custom_ee | Display push result for {{ ee_profile.name }}"
+  ansible.builtin.debug:
+    msg: "{{ ee_push_result.stdout_lines }}"
+  when:
+    - ee_push_to_registry
+    - ee_push_result.stdout_lines is defined
+
+- name: "build_custom_ee | Record build summary for {{ ee_profile.name }}"
+  ansible.builtin.set_fact:
+    ee_build_profile_summaries: >-
+      {{
+        ee_build_profile_summaries +
+        [
+          {
+            'name': ee_profile.name,
+            'output_image': ee_profile.output_image,
+            'registry_summary': ee_profile.registry_image if ee_push_to_registry else 'skipped (EE_PUSH_TO_REGISTRY=false)'
+          }
+        ]
+      }}
