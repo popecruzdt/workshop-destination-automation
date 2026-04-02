@@ -729,8 +729,13 @@ aap_eda_aap_credential_name: "destination-automation-aap"
 # AAP 2.6 requires the /api/controller/ path suffix so ansible-rulebook probes the correct endpoint.
 aap_eda_aap_credential_host: >-
   {{
-    (lookup('ansible.builtin.env', 'AAP_CONTROLLER_HOST')
-    | default('https://' + (lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default(ansible_fqdn, true)), true))
+    ('https://' + (
+      lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME')
+      | default(ansible_fqdn, true)
+      | default(ansible_hostname, true)
+      | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME'), true)
+      | default('localhost', true)
+    ))
     | regex_replace('/$', '') + '/api/controller/'
   }}
 
