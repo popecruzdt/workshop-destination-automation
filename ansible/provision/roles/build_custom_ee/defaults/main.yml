@@ -11,9 +11,10 @@ ee_output_image: "localhost/{{ ee_image_name }}:{{ ee_image_tag }}"
 # Registry and certificate handling
 ee_registry_host: >-
   {{
-    lookup('ansible.builtin.env', 'EE_REGISTRY_HOST')
+    lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME')
     | default(ansible_fqdn, true)
     | default(ansible_hostname, true)
+    | default(lookup('ansible.builtin.env', 'EE_REGISTRY_HOST'), true)
     | default('localhost', true)
   }}
 ee_registry_validate_certs: "{{ (lookup('ansible.builtin.env', 'EE_REGISTRY_VALIDATE_CERTS') | default('false', true)) | bool }}"

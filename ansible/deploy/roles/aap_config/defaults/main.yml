@@ -31,8 +31,12 @@ aap_custom_ee_name: "destination-automation-podman-ee"
 aap_custom_ee_description: "Custom EE with containers.podman collection (creator-ee base)"
 aap_custom_ee_registry_host: >-
   {{
-    lookup('ansible.builtin.env', 'EE_REGISTRY_HOST')
-    | default(lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME') | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME') | default('localhost', true), true), true)
+    lookup('ansible.builtin.env', 'AAP_PRIVATE_HOSTNAME')
+    | default(ansible_fqdn, true)
+    | default(ansible_hostname, true)
+    | default(lookup('ansible.builtin.env', 'EE_REGISTRY_HOST'), true)
+    | default(lookup('ansible.builtin.env', 'AAP_PUBLIC_HOSTNAME'), true)
+    | default('localhost', true)
   }}
 aap_custom_ee_image: "{{ aap_custom_ee_registry_host }}/destination-automation-podman-ee:latest"
 aap_oneagent_ee_name: "destination-automation-oneagent-ee"
