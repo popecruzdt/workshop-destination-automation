@@ -85,6 +85,12 @@ aap_hub_seed_log_path: "{{ lookup('ansible.builtin.env', 'AAP_HUB_SEED_LOG_PATH'
 aap_hub_seed: "{{ (lookup('ansible.builtin.env', 'AAP_HUB_SEED') | default('false', true)) | bool }}"
 aap_hub_seed_collections: "{{ lookup('ansible.builtin.env', 'AAP_HUB_SEED_COLLECTIONS') | default('', true) }}"
 
+# Local registry authentication for subsequent EE builds
+aap_registry_auto_login: "{{ (lookup('ansible.builtin.env', 'AAP_REGISTRY_AUTO_LOGIN') | default('true', true)) | bool }}"
+aap_registry_username: "{{ lookup('ansible.builtin.env', 'AAP_REGISTRY_USERNAME') | default('admin', true) }}"
+aap_registry_password: "{{ lookup('ansible.builtin.env', 'AAP_REGISTRY_PASSWORD') | default(aap_admin_password, true) }}"
+aap_registry_validate_certs: "{{ (lookup('ansible.builtin.env', 'AAP_REGISTRY_VALIDATE_CERTS') | default('false', true)) | bool }}"
+
 # Internal database host mapping for all-in-one
 aap_db_host: "{{ lookup('ansible.builtin.env', 'AAP_DB_HOST') | default(aap_private_hostname, true) }}"
 aap_redis_mode: "{{ lookup('ansible.builtin.env', 'AAP_REDIS_MODE') | default('standalone', true) }}"

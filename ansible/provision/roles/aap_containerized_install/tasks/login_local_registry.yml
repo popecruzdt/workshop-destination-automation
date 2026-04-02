@@ -1,0 +1,30 @@
+---
+- name: Resolve local registry host
+  ansible.builtin.set_fact:
+    aap_local_registry_host: "{{ aap_private_hostname | default(ansible_fqdn, true) | default(ansible_hostname, true) | default('localhost', true) }}"
+
+- name: Assert local registry login credentials are provided
+  ansible.builtin.assert:
+    that:
+      - aap_registry_username | length > 0
+      - aap_registry_password | length > 0
+    fail_msg: >-
+      Local registry auto-login is enabled, but credentials are missing.
+      Set AAP_REGISTRY_PASSWORD or AAP_ADMIN_PASSWORD (and optionally AAP_REGISTRY_USERNAME)
+      before running this role.
+
+- name: Log in to local Automation Hub registry
+  ansible.builtin.shell: |
+    podman login -u {{ aap_registry_username | quote }} -p {{ aap_registry_password | quote }} \
+      --tls-verify={{ aap_registry_validate_certs | ternary('true', 'false') }} {{ aap_local_registry_host | quote }}
+  register: aap_registry_login_result
+  changed_when: false
+  failed_when: aap_registry_login_result.rc != 0
+  become: true
+  no_log: true
+
+- name: Confirm local registry login target
+  ansible.builtin.debug:
+    msg: >-
+      Local registry authentication configured for {{ aap_local_registry_host }}
+      using user {{ aap_registry_username }}.

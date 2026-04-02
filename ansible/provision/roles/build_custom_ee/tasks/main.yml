@@ -91,6 +91,31 @@
   ansible.builtin.set_fact:
     ee_build_profile_summaries: []
 
+- name: "build_custom_ee | Preflight base image availability for all profiles"
+  ansible.builtin.shell: |
+    set -e
+    podman image exists {{ ee_profile.base_image | quote }} || podman pull {{ ee_profile.base_image | quote }}
+  args:
+    executable: /bin/bash
+  loop: "{{ ee_build_profiles }}"
+  loop_control:
+    loop_var: ee_profile
+    label: "{{ ee_profile.name }} -> {{ ee_profile.base_image }}"
+  register: ee_base_image_preflight
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: "build_custom_ee | Fail early when a profile base image is not available"
+  ansible.builtin.fail:
+    msg: >-
+      Base image preflight failed for profile {{ item.ee_profile.name }}.
+      Could not use image '{{ item.ee_profile.base_image }}'.
+      Ensure the image exists in the configured registry and that podman authentication is valid.
+      Command output: {{ (item.stderr | default(item.stdout, true)) | trim }}
+  loop: "{{ ee_base_image_preflight.results | default([]) }}"
+  when: item.rc | default(0) != 0
+
 - name: "build_custom_ee | Build execution environment profiles"
   ansible.builtin.include_tasks: build_profile.yml
   loop: "{{ ee_build_profiles }}"

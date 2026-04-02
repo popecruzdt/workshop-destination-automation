@@ -8,7 +8,21 @@ images:
 options:
   package_manager_path: {{ ee_profile.package_manager_path }}
 
+{% if ee_profile.galaxy_opts is defined and ee_profile.galaxy_opts | length > 0 %}
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: "{{ ee_profile.galaxy_opts }}"
+
+{% endif %}
 {% if ee_profile.collections | length > 0 %}
 dependencies:
   galaxy: requirements.yml
+{% endif %}
+{% if ee_profile.additional_build_steps is defined %}
+additional_build_steps:
+{% for phase, steps in ee_profile.additional_build_steps.items() %}
+  {{ phase }}:
+{% for step in steps %}
+    - {{ step }}
+{% endfor %}
+{% endfor %}
 {% endif %}

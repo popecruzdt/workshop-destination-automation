@@ -28,3 +28,13 @@
 - name: Validate AAP containerized installation
   ansible.builtin.include_tasks: validate_install.yml
   when: aap_run_installer
+
+- name: Log in to local registry for follow-on EE builds
+  ansible.builtin.include_tasks:
+    file: login_local_registry.yml
+    apply:
+      tags:
+        - aap-registry-login
+  when: aap_registry_auto_login | bool
+  tags:
+    - aap-registry-login
