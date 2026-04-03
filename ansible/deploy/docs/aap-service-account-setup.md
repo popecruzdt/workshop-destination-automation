@@ -148,22 +148,46 @@ sudo -u aap-service-account journalctl --user -t travel-advisor -f
 
 **Note:** This change only affects containers created after the configuration is set. Existing containers retain their original log driver. Re-running the `recycle-app` job template will recreate the `travel-advisor` container with the new `journald` driver.
 
-## Step 6: Configure Minimal Privileges (Optional)
+## Step 6: Grant Full Sudo for OneAgent Deployment (Required)
 
-By default, the `aap-service-account` user has no `sudo` access, which is appropriate for running playbooks. If your playbooks need to perform privileged operations (e.g., restart services), you can configure `sudo` access for specific commands:
+The `deploy_dynatrace_oneagent.yml` playbook (role: `dynatrace_oneagent_deploy`) requires full `sudo` privileges to install and configure Dynatrace OneAgent on Linux.
+
+Dynatrace installation reference:
+https://docs.dynatrace.com/docs/ingest-from/dynatrace-oneagent/installation-and-operation/linux/installation/install-oneagent-on-linux
+
+Run these commands on the target RHEL node to grant full passwordless sudo to `aap-service-account`:
 
 ```bash
-sudo visudo -f /etc/sudoers.d/aap-service-account
+sudo tee /etc/sudoers.d/aap-service-account-full-sudo > /dev/null << 'EOF'
+aap-service-account ALL=(ALL) NOPASSWD: ALL
+EOF
+sudo chmod 440 /etc/sudoers.d/aap-service-account-full-sudo
+sudo visudo -cf /etc/sudoers.d/aap-service-account-full-sudo
 ```
 
-Add entries as needed. For example, to allow service restart without password:
-
+If validation succeeds, you should see:
 ```
-# Allow aap-service-account to restart specific services without password
-aap-service-account ALL=(ALL) NOPASSWD: /bin/systemctl restart easytravel-app
+/etc/sudoers.d/aap-service-account-full-sudo: parsed OK
 ```
 
-**Security Note:** Only grant the minimum privileges necessary for your playbooks to function.
+## Step 6b: Remove Full Sudo After OneAgent (Optional)
+
+After OneAgent is installed, you may keep full sudo or remove it. Removal is optional and depends on your security policy.
+
+To remove full sudo access:
+
+```bash
+sudo rm -f /etc/sudoers.d/aap-service-account-full-sudo
+sudo visudo -c
+```
+
+To confirm access was removed:
+
+```bash
+sudo -u aap-service-account sudo -n true
+```
+
+Expected result: command should fail with a sudo permission error.
 
 ## Step 7: Update the Machine Credential in AAP
 

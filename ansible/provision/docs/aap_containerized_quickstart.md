@@ -61,6 +61,7 @@ export AAP_HUB_SEED_COLLECTIONS="[]"
 export AAP_INVENTORY_OUTPUT_PATH="/opt/ansible/inventory-workshop"
 
 # Optional firewall opening for 80/443
+# Defaults to false if not set
 export AAP_MANAGE_FIREWALL="true"
 
 # Optional RHSM registration automation
@@ -71,6 +72,49 @@ export AAP_REGISTER_RHSM="false"
 # export RHSM_ACTIVATION_KEY="..."
 # export RHSM_ORG_ID="..."
 ```
+
+## Default and fallback behavior
+
+When an environment variable is not set, the role resolves values in this order:
+
+1. Environment variable value (`AAP_*` or `RHSM_*`) if provided.
+2. Computed fallback (if the variable depends on another resolved value).
+3. Hardcoded role default.
+
+Key examples used by `aap_containerized_install`:
+
+| Variable | Resolution order when not explicitly set |
+|---|---|
+| `AAP_PUBLIC_HOSTNAME` | No fallback. Must be set (required input). |
+| `AAP_INSTALLER_LOCAL_PATH` / `AAP_INSTALLER_URL` | At least one installer source should be provided. No automatic source fallback. |
+| `AAP_PRIVATE_HOSTNAME` | `AAP_PRIVATE_HOSTNAME` -> `ansible_fqdn` |
+| `AAP_INSTALL_USER` | `AAP_INSTALL_USER` -> `SUDO_USER` -> `USER` -> `ansible_user_id` |
+| `AAP_INSTALL_DIR` | `AAP_INSTALL_DIR` -> `/opt/ansible` |
+| `AAP_BASE_DIR` | `AAP_BASE_DIR` -> `/opt/ansible/aap` |
+| `AAP_XDG_DATA_HOME` | `AAP_XDG_DATA_HOME` -> `AAP_BASE_DIR + /xdg` |
+| `AAP_INVENTORY_OUTPUT_PATH` | `AAP_INVENTORY_OUTPUT_PATH` -> `/opt/ansible/inventory-workshop` |
+| `AAP_BUNDLE_INSTALL` | `AAP_BUNDLE_INSTALL` -> `true` |
+| `AAP_HUB_SEED` | `AAP_HUB_SEED` -> `false` |
+| `AAP_HUB_SEED_COLLECTIONS` | `AAP_HUB_SEED_COLLECTIONS` -> empty -> rendered as `[]` in generated inventory |
+| `AAP_MANAGE_FIREWALL` | `AAP_MANAGE_FIREWALL` -> `false` |
+| `AAP_REGISTER_RHSM` | `AAP_REGISTER_RHSM` -> `false` |
+| `RHSM_USERNAME` | `RHSM_USERNAME` -> empty string |
+| `RHSM_PASSWORD` | `RHSM_PASSWORD` -> empty string |
+| `RHSM_ACTIVATION_KEY` | `RHSM_ACTIVATION_KEY` -> empty string |
+| `RHSM_ORG_ID` | `RHSM_ORG_ID` -> empty string |
+
+Related fallback chains that affect generated inventory and installer behavior:
+
+1. `AAP_POSTGRES_ADMIN_PASSWORD` -> defaults to `AAP_ADMIN_PASSWORD`.
+2. `AAP_REGISTRY_PASSWORD` -> defaults to `AAP_ADMIN_PASSWORD`.
+3. `AAP_DB_HOST` -> defaults to resolved `AAP_PRIVATE_HOSTNAME`.
+4. Data directories inherit from `AAP_BASE_DIR` when not set:
+   - `AAP_POSTGRES_DATA_DIR` -> `AAP_BASE_DIR/postgresql`
+   - `AAP_CONTROLLER_DATA_DIR` -> `AAP_BASE_DIR/controller`
+   - `AAP_HUB_DATA_DIR` -> `AAP_BASE_DIR/automationhub`
+   - `AAP_REDIS_DATA_DIR` -> `AAP_BASE_DIR/redis`
+
+Practical effect: if you only set `AAP_PUBLIC_HOSTNAME` and installer source (`AAP_INSTALLER_LOCAL_PATH` or `AAP_INSTALLER_URL`), the rest resolve to workshop-safe defaults under `/opt/ansible`.
 
 ## Sudo authentication
 
@@ -188,6 +232,32 @@ ansible-playbook provision/playbooks/build_custom_ee.yml
 | Base Image | ee-supported-rhel9:2.0 | Red Hat Certified EE runtime |
 | containers.podman | 1.15.0 | Stable release for AAP 2.6 on RHEL 9 |
 | ansible-builder | 3.7.0 | Stable 3.x release for schema v3 |
+
+### Local-registry Podman base profile
+
+The role also includes a third profile that tests `containers.podman` on top of
+`ee-supported-rhel9:2.0` pulled from the local Automation Hub registry instead of
+from an external registry.
+
+Defaults:
+
+1. Base image: `{{ ee_registry_host }}/ee-supported-rhel9:2.0`
+2. Output image: `localhost/destination-automation-podman-local-base-ee:latest`
+3. Registry image: `{{ ee_registry_host }}/destination-automation-podman-local-base-ee:latest`
+4. Package manager: `/usr/bin/dnf`
+
+Prerequisite:
+
+The local Automation Hub registry must already contain the base image
+`ee-supported-rhel9:2.0`. The role does not currently mirror that base image into
+the local registry for you.
+
+If your local registry stores the base image under a different repository name,
+override it before the build:
+
+```bash
+export EE_LOCAL_PODMAN_BASE_IMAGE="$(hostname -f)/<your-local-repo>:2.0"
+```
 
 ### If you need mixed-use collections
 
