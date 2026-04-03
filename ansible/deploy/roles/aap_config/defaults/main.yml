@@ -422,6 +422,8 @@ aap_deploy_dynatrace_edgeconnect_job_template_extra_vars:
   dynatrace_edgeconnect_restrict_hosts_to:
     - "host.containers.internal"
   dynatrace_edgeconnect_oauth_endpoint: "https://sso.dynatrace.com/sso/oauth2/token"
+  dynatrace_edgeconnect_host_patterns: []
+  dynatrace_edgeconnect_host_mappings: []
 
 # Job templates for app operations (start, stop, restart)
 aap_operate_start_app_job_template_name: "destination-automation-operate-start-app"

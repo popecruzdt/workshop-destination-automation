@@ -14,6 +14,10 @@
       must be set before running this role. Ensure the Monaco and Dynatrace OAuth Client
       credentials are attached to this job template.
 
+- name: "dynatrace_edgeconnect_deploy | Display OAuth endpoint configuration"
+  ansible.builtin.debug:
+    msg: "Using {{ dynatrace_edgeconnect_oauth_endpoint }} for OAuth"
+
 # ============================================================
 # EdgeConnect API registration
 # ============================================================
@@ -55,28 +59,81 @@
         | list
       }}
 
-- name: "dynatrace_edgeconnect_deploy | No changes required — '{{ dynatrace_edgeconnect_name }}' already registered"
-  ansible.builtin.debug:
-    msg: >-
-      EdgeConnect '{{ dynatrace_edgeconnect_name }}' is already registered
-      (id: {{ _edgeconnect_registered[0].id }}).
-      No changes required.
-  when: _edgeconnect_registered | length > 0
+- name: "dynatrace_edgeconnect_deploy | Build effective host patterns"
+  ansible.builtin.set_fact:
+    _edgeconnect_effective_host_patterns: >-
+      {{
+        dynatrace_edgeconnect_host_patterns
+        if (dynatrace_edgeconnect_host_patterns | length > 0)
+        else dynatrace_edgeconnect_restrict_hosts_to
+      }}
 
 - name: "dynatrace_edgeconnect_deploy | Build EdgeConnect registration body"
   ansible.builtin.set_fact:
     _edgeconnect_register_body: "{{
       {
         'name': dynatrace_edgeconnect_name,
-        'hostPatterns': dynatrace_edgeconnect_host_patterns,
+        'hostPatterns': _edgeconnect_effective_host_patterns,
         'hostMappings': dynatrace_edgeconnect_host_mappings
-      } | combine(
-        {'oauthClientId': dynatrace_edgeconnect_oauth_client_id}
-        if dynatrace_edgeconnect_oauth_client_id | length > 0
-        else {}
-      )
+      }
     }}"
-  when: _edgeconnect_registered | length == 0
+
+- name: "dynatrace_edgeconnect_deploy | Build EdgeConnect update body"
+  ansible.builtin.set_fact:
+    _edgeconnect_update_body: "{{
+      {
+        'name': dynatrace_edgeconnect_name,
+        'hostPatterns': _edgeconnect_effective_host_patterns,
+        'hostMappings': dynatrace_edgeconnect_host_mappings
+      }
+    }}"
+
+- name: "dynatrace_edgeconnect_deploy | Determine if existing registration needs update"
+  ansible.builtin.set_fact:
+    _edgeconnect_needs_update: >-
+      {{
+        (_edgeconnect_registered[0].hostPatterns | default([])) != (_edgeconnect_effective_host_patterns | default([]))
+        or (_edgeconnect_registered[0].hostMappings | default([])) != (dynatrace_edgeconnect_host_mappings | default([]))
+      }}
+  when: _edgeconnect_registered | length > 0
+
+- name: "dynatrace_edgeconnect_deploy | No registration changes required — '{{ dynatrace_edgeconnect_name }}' already up-to-date"
+  ansible.builtin.debug:
+    msg: >-
+      EdgeConnect '{{ dynatrace_edgeconnect_name }}' is already registered
+      (id: {{ _edgeconnect_registered[0].id }}).
+      hostPatterns and hostMappings are up-to-date.
+  when:
+    - _edgeconnect_registered | length > 0
+    - not (_edgeconnect_needs_update | default(false))
+
+- name: "dynatrace_edgeconnect_deploy | Update EdgeConnect '{{ dynatrace_edgeconnect_name }}' registration"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_edgeconnect_platform_url | regex_replace('/$', '') }}/platform/app-engine/edge-connect/v1/edge-connects/{{ _edgeconnect_registered[0].id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ _edgeconnect_oauth_token_result.json.access_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ _edgeconnect_update_body }}"
+    validate_certs: "{{ dynatrace_edgeconnect_validate_certs }}"
+    status_code: [200, 204]
+  register: _edgeconnect_put_result
+  no_log: true
+  when:
+    - _edgeconnect_registered | length > 0
+    - _edgeconnect_needs_update | default(false)
+
+- name: "dynatrace_edgeconnect_deploy | Display EdgeConnect update result"
+  ansible.builtin.debug:
+    msg: >-
+      Updated EdgeConnect '{{ dynatrace_edgeconnect_name }}' registration
+      (id: {{ _edgeconnect_registered[0].id }}).
+      hostPatterns: {{ _edgeconnect_effective_host_patterns }}
+      hostMappings: {{ dynatrace_edgeconnect_host_mappings }}
+  when:
+    - _edgeconnect_registered | length > 0
+    - _edgeconnect_needs_update | default(false)
 
 - name: "dynatrace_edgeconnect_deploy | Register EdgeConnect '{{ dynatrace_edgeconnect_name }}'"
   ansible.builtin.uri:
@@ -98,13 +155,66 @@
     msg: >-
       Registered EdgeConnect '{{ _edgeconnect_post_result.json.name }}'.
       id: {{ _edgeconnect_post_result.json.id }}
-      oauthClientId: {{ _edgeconnect_post_result.json.oauthClientId }}
-      oauthClientResource: {{ _edgeconnect_post_result.json.oauthClientResource }}
-      {% if _edgeconnect_post_result.json.oauthClientSecret | default('') | length > 0 %}
-      NOTE: New OAuth client auto-generated — save the oauthClientSecret now, it is NOT retrievable later:
-      oauthClientSecret: {{ _edgeconnect_post_result.json.oauthClientSecret }}
-      {% endif %}
+      oauthClientId: {{ _edgeconnect_post_result.json.oauthClientId | default('N/A') }}
+      oauthClientResource: {{ _edgeconnect_post_result.json.oauthClientResource | default('N/A') }}
+      hostPatterns: {{ _edgeconnect_effective_host_patterns }}
+      hostMappings: {{ dynatrace_edgeconnect_host_mappings }}
   when: _edgeconnect_registered | length == 0
+
+- name: "dynatrace_edgeconnect_deploy | Check for existing EdgeConnect runtime config"
+  ansible.builtin.stat:
+    path: "{{ dynatrace_edgeconnect_config_dir }}/edgeConnect.yaml"
+  register: _edgeconnect_runtime_config_stat
+
+- name: "dynatrace_edgeconnect_deploy | Read existing EdgeConnect runtime config"
+  ansible.builtin.slurp:
+    src: "{{ dynatrace_edgeconnect_config_dir }}/edgeConnect.yaml"
+  register: _edgeconnect_runtime_config_slurp
+  when:
+    - _edgeconnect_registered | length > 0
+    - _edgeconnect_runtime_config_stat.stat.exists
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Parse existing EdgeConnect runtime config"
+  ansible.builtin.set_fact:
+    _edgeconnect_runtime_config: "{{ _edgeconnect_runtime_config_slurp.content | b64decode | from_yaml }}"
+  when:
+    - _edgeconnect_registered | length > 0
+    - _edgeconnect_runtime_config_stat.stat.exists
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Use runtime OAuth from newly created registration"
+  ansible.builtin.set_fact:
+    _edgeconnect_runtime_oauth_endpoint: "{{ dynatrace_edgeconnect_oauth_endpoint }}"
+    _edgeconnect_runtime_oauth_client_id: "{{ _edgeconnect_post_result.json.oauthClientId | default('') }}"
+    _edgeconnect_runtime_oauth_client_secret: "{{ _edgeconnect_post_result.json.oauthClientSecret | default('') }}"
+    _edgeconnect_runtime_oauth_resource: "{{ _edgeconnect_post_result.json.oauthClientResource | default('') }}"
+  when: _edgeconnect_registered | length == 0
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Use runtime OAuth from existing config"
+  ansible.builtin.set_fact:
+    _edgeconnect_runtime_oauth_endpoint: "{{ _edgeconnect_runtime_config.oauth.endpoint | default(dynatrace_edgeconnect_oauth_endpoint) }}"
+    _edgeconnect_runtime_oauth_client_id: "{{ _edgeconnect_runtime_config.oauth.client_id | default('') }}"
+    _edgeconnect_runtime_oauth_client_secret: "{{ _edgeconnect_runtime_config.oauth.client_secret | default('') }}"
+    _edgeconnect_runtime_oauth_resource: "{{ _edgeconnect_runtime_config.oauth.resource | default('') }}"
+  when:
+    - _edgeconnect_registered | length > 0
+    - _edgeconnect_runtime_config_stat.stat.exists
+  no_log: true
+
+- name: "dynatrace_edgeconnect_deploy | Ensure runtime OAuth credentials are available"
+  ansible.builtin.assert:
+    that:
+      - _edgeconnect_runtime_oauth_endpoint | default('') | length > 0
+      - _edgeconnect_runtime_oauth_client_id | default('') | length > 0
+      - _edgeconnect_runtime_oauth_client_secret | default('') | length > 0
+      - _edgeconnect_runtime_oauth_resource | default('') | length > 0
+    fail_msg: >-
+      Runtime EdgeConnect OAuth credentials are unavailable. The management OAuth credential is only used
+      to create/update the EdgeConnect registration, while edgeConnect.yaml must contain runtime OAuth values
+      from the registration response. If this EdgeConnect already existed and no prior edgeConnect.yaml is present,
+      delete/recreate the registration so a new oauthClientSecret can be captured.
 
 # ============================================================
 # EdgeConnect container deployment
@@ -159,3 +269,45 @@
       EdgeConnect container '{{ dynatrace_edgeconnect_container_name }}' is running.
       Image: {{ dynatrace_edgeconnect_image }}.
       Config dir: {{ dynatrace_edgeconnect_config_dir }}.
+
+- name: "dynatrace_edgeconnect_deploy | Read recent EdgeConnect container logs"
+  ansible.builtin.command:
+    cmd: "podman logs --tail 80 {{ dynatrace_edgeconnect_container_name }}"
+  register: _edgeconnect_container_logs
+  changed_when: false
+  failed_when: false
+
+- name: "dynatrace_edgeconnect_deploy | Display recent EdgeConnect container logs"
+  ansible.builtin.debug:
+    msg: "{{ _edgeconnect_container_logs.stdout_lines | default([]) }}"
+
+- name: "dynatrace_edgeconnect_deploy | Refresh EdgeConnect registration state"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_edgeconnect_platform_url | regex_replace('/$', '') }}/platform/app-engine/edge-connect/v1/edge-connects"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ _edgeconnect_oauth_token_result.json.access_token }}"
+    validate_certs: "{{ dynatrace_edgeconnect_validate_certs }}"
+    status_code: 200
+  register: _edgeconnect_list_result_after_deploy
+
+- name: "dynatrace_edgeconnect_deploy | Capture final EdgeConnect registration"
+  ansible.builtin.set_fact:
+    _edgeconnect_registered_final: >-
+      {{
+        (_edgeconnect_list_result_after_deploy.json.edgeConnects | default([]))
+        | selectattr('name', 'defined')
+        | selectattr('name', 'equalto', dynatrace_edgeconnect_name)
+        | list
+      }}
+
+- name: "dynatrace_edgeconnect_deploy | Display final registration details"
+  ansible.builtin.debug:
+    msg: >-
+      EdgeConnect '{{ dynatrace_edgeconnect_name }}' final registration:
+      id={{ _edgeconnect_registered_final[0].id | default('N/A') }},
+      hostPatterns={{ _edgeconnect_registered_final[0].hostPatterns | default([]) }},
+      hostMappings={{ _edgeconnect_registered_final[0].hostMappings | default([]) }},
+      status={{ _edgeconnect_registered_final[0].status | default('N/A') }},
+      connectionState={{ _edgeconnect_registered_final[0].connectionState | default('N/A') }}
+  when: _edgeconnect_registered_final | length > 0
