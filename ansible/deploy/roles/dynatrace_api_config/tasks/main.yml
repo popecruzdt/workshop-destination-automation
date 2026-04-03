@@ -84,18 +84,57 @@
     status_code: 200
   register: _js_outbound_get_result
 
-- name: "dynatrace_api_config | Assert JS runtime outbound setting exists"
-  ansible.builtin.assert:
-    that:
-      - (_js_outbound_get_result.json['items'] | default([]) | length) > 0
-    fail_msg: >-
-      No settings object found for schema builtin:dt-javascript-runtime.allowed-outbound-connections.
+- name: "dynatrace_api_config | Record existing JS runtime outbound setting objects"
+  ansible.builtin.set_fact:
+    _js_outbound_existing: "{{ _js_outbound_get_result.json['items'] | default([]) }}"
+
+- name: "dynatrace_api_config | Create default JS runtime outbound connections setting when missing"
+  ansible.builtin.uri:
+    url: "{{ dynatrace_api_config_settings_api_base_url }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ dynatrace_api_config_platform_token }}"
+      Content-Type: "application/json"
+    validate_certs: "{{ dynatrace_api_config_validate_certs }}"
+    body_format: json
+    body:
+      - schemaId: "builtin:dt-javascript-runtime.allowed-outbound-connections"
+        scope: "environment"
+        value:
+          allowedOutboundConnections:
+            enforced: false
+            hostList: []
+    status_code: 200
+  register: _js_outbound_post_result
+  when: _js_outbound_existing | length == 0
+
+- name: "dynatrace_api_config | Display JS runtime outbound setting creation result"
+  ansible.builtin.debug:
+    msg: >-
+      Created default JS runtime outbound connections setting.
+      objectId: {{ _js_outbound_post_result.json[0].objectId }}
+  when: _js_outbound_existing | length == 0
 
 - name: "dynatrace_api_config | Set JS outbound connection facts"
   ansible.builtin.set_fact:
-    _js_outbound_object_id: "{{ _js_outbound_get_result.json['items'][0].objectId }}"
-    _js_outbound_enforced: "{{ _js_outbound_get_result.json['items'][0].value.allowedOutboundConnections.enforced | default(false) }}"
-    _js_outbound_host_list: "{{ _js_outbound_get_result.json['items'][0].value.allowedOutboundConnections.hostList | default([]) }}"
+    _js_outbound_object_id: >-
+      {{
+        _js_outbound_existing[0].objectId
+        if (_js_outbound_existing | length) > 0
+        else _js_outbound_post_result.json[0].objectId
+      }}
+    _js_outbound_enforced: >-
+      {{
+        _js_outbound_existing[0].value.allowedOutboundConnections.enforced
+        if (_js_outbound_existing | length) > 0
+        else false
+      }}
+    _js_outbound_host_list: >-
+      {{
+        _js_outbound_existing[0].value.allowedOutboundConnections.hostList
+        if (_js_outbound_existing | length) > 0
+        else []
+      }}
 
 - name: "dynatrace_api_config | Display current JS outbound connections setting"
   ansible.builtin.debug:
@@ -270,7 +309,6 @@
     status_code: 200
   register: _service_detection_get_result
   when: dynatrace_api_config_service_detection_enabled
-
 - name: "dynatrace_api_config | Find existing full web request service detection object by name"
   ansible.builtin.set_fact:
     _service_detection_existing: >-
