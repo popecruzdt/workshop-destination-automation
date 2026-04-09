@@ -18,16 +18,20 @@
 
 [data-md-color-scheme="redhat-dark"] {
   --md-default-bg-color: #151515;
-  --md-default-fg-color: #f5f5f5;
-  --md-default-fg-color--light: #d6d6d6;
+  --md-default-fg-color: #ffffff;
+  --md-default-fg-color--light: #d0d0d0;
   --md-default-fg-color--lighter: #b8b8b8;
+  --md-typeset-color: #ffffff;
+  --md-typeset-a-color: #ff7b7b;
   --md-primary-fg-color: #ee0000;
   --md-primary-fg-color--light: #ff3b3b;
   --md-primary-fg-color--dark: #a30000;
   --md-accent-fg-color: #ffffff;
-  --md-typeset-a-color: #ff8c8c;
   --md-code-bg-color: #1f1f1f;
-  --md-code-fg-color: #f5f5f5;
+  --md-code-fg-color: #ffffff;
+  --md-nav-link-color: #c5c5c5;
+  --md-nav-link-color--hover: #ee0000;
+  --md-nav-link-color--active: #ffffff;
 }
 
 .md-typeset h1,
@@ -63,4 +67,29 @@
 [data-md-color-scheme="redhat-dark"] .md-typeset .admonition.tip,
 [data-md-color-scheme="redhat-dark"] .md-typeset details.tip {
   border-color: #ff6b6b;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-content,
+[data-md-color-scheme="redhat-dark"] .md-typeset,
+[data-md-color-scheme="redhat-dark"] .md-typeset p,
+[data-md-color-scheme="redhat-dark"] .md-typeset li {
+  color: #ffffff;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-nav,
+[data-md-color-scheme="redhat-dark"] .md-nav__item .md-nav__link,
+[data-md-color-scheme="redhat-dark"] .md-tabs__link {
+  color: #b8b8b8;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-nav__item .md-nav__link:hover,
+[data-md-color-scheme="redhat-dark"] .md-nav__item .md-nav__link:focus,
+[data-md-color-scheme="redhat-dark"] .md-tabs__link:hover,
+[data-md-color-scheme="redhat-dark"] .md-typeset a:hover {
+  color: #ee0000;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-nav__item .md-nav__link--active,
+[data-md-color-scheme="redhat-dark"] .md-tabs__link--active {
+  color: #ffffff;
 }
