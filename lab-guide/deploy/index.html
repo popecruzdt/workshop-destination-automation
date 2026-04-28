@@ -374,27 +374,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-configure-aap-and-eda" class="md-nav__link">
+  <a href="#step-1-create-aap-service-account-user" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Configure AAP and EDA
+      Step 1: Create AAP Service Account User
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-deploy-dynatrace-components" class="md-nav__link">
+  <a href="#step-2-configure-aap-and-eda" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Deploy Dynatrace Components
+      Step 2: Configure AAP and EDA
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-deploy-the-ai-travel-advisor-application" class="md-nav__link">
+  <a href="#step-3-deploy-dynatrace-components" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Deploy the AI Travel Advisor Application
+      Step 3: Deploy Dynatrace Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-deploy-the-ai-travel-advisor-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Deploy the AI Travel Advisor Application
     </span>
   </a>
   
@@ -533,27 +542,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-configure-aap-and-eda" class="md-nav__link">
+  <a href="#step-1-create-aap-service-account-user" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Configure AAP and EDA
+      Step 1: Create AAP Service Account User
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-deploy-dynatrace-components" class="md-nav__link">
+  <a href="#step-2-configure-aap-and-eda" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Deploy Dynatrace Components
+      Step 2: Configure AAP and EDA
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-deploy-the-ai-travel-advisor-application" class="md-nav__link">
+  <a href="#step-3-deploy-dynatrace-components" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Deploy the AI Travel Advisor Application
+      Step 3: Deploy Dynatrace Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-deploy-the-ai-travel-advisor-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Deploy the AI Travel Advisor Application
     </span>
   </a>
   
@@ -595,34 +613,142 @@
 <li>Deploy EdgeConnect and OneAgent.</li>
 <li>Build and deploy the easyTravel AI Travel Advisor stack using Podman workflows.</li>
 </ul>
-<h2 id="step-1-configure-aap-and-eda">Step 1: Configure AAP and EDA<a class="headerlink" href="#step-1-configure-aap-and-eda" title="Permanent link">&para;</a></h2>
+<h2 id="step-1-create-aap-service-account-user">Step 1: Create AAP Service Account User<a class="headerlink" href="#step-1-create-aap-service-account-user" title="Permanent link">&para;</a></h2>
+<p>Before running deployment automation, create and validate the <code>aap-service-account</code> user on the RHEL host.</p>
+<p>Reference guide:
+<a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/deploy/docs/aap-service-account-setup.md" target="_blank">ansible/deploy/docs/aap-service-account-setup.md</a></p>
+<h2 id="step-2-configure-aap-and-eda">Step 2: Configure AAP and EDA<a class="headerlink" href="#step-2-configure-aap-and-eda" title="Permanent link">&para;</a></h2>
 <p>Run the bootstrap playbooks from the ansible directory.</p>
-<p><code>bash
-cd ~/workshop-destination-automation/ansible
+<pre><code class="language-bash">cd ~/workshop-destination-automation/ansible
 ansible-playbook deploy/playbooks/configure_aap.yml
-ansible-playbook deploy/playbooks/configure_eda.yml</code></p>
+</code></pre>
+<pre><code class="language-bash">ansible-playbook deploy/playbooks/configure_eda.yml
+</code></pre>
 <p>After playbook completion, review credentials and inventory objects in the AAP UI.</p>
-<h2 id="step-2-deploy-dynatrace-components">Step 2: Deploy Dynatrace Components<a class="headerlink" href="#step-2-deploy-dynatrace-components" title="Permanent link">&para;</a></h2>
+<p><strong>Apply Credentials via UI</strong></p>
+<ul>
+<li>[ ] aap-service-account</li>
+</ul>
+<p><img alt="aap-service-account" src="../../assets/images/aap-credential-aap-service-account.png" /></p>
+<ul>
+<li>[ ] destination-automation-dynatrace-monaco</li>
+</ul>
+<p><img alt="dynatrace monaco" src="../../assets/images/aap-credential-dynatrace-monaco.png" /></p>
+<ul>
+<li>[ ] destination-automation-dynatrace-oauth</li>
+</ul>
+<p><img alt="dynatrace oauth" src="../../assets/images/aap-credential-dynatrace-oauth.png" /></p>
+<ul>
+<li>[ ] destination-automation-dynatrace-oneagent</li>
+</ul>
+<p><img alt="dynatrace oneagent" src="../../assets/images/aap-credential-dynatrace-oneagent.png" /></p>
+<ul>
+<li>[ ] destination-automation-dynatrace-otlp</li>
+</ul>
+<p><img alt="dynatrace otlp" src="../../assets/images/aap-credential-dynatrace-otlp.png" /></p>
+<p><strong>Create Job Template Domains (optional, recommended)</strong></p>
+<p>AAP Web UI -&gt; Automation Execution (Automation Controller) -&gt; Templates: Configure Domains (🔧 wrench icon)</p>
+<ul>
+<li>Name: Dynatrace<ul>
+<li>Labels: dynatrace</li>
+</ul>
+</li>
+<li>Name: App<ul>
+<li>Labels: app</li>
+</ul>
+</li>
+</ul>
+<p><img alt="Domains" src="../../assets/images/aap-template-domains.png" /></p>
+<h2 id="step-3-deploy-dynatrace-components">Step 3: Deploy Dynatrace Components<a class="headerlink" href="#step-3-deploy-dynatrace-components" title="Permanent link">&para;</a></h2>
 <p>Launch the relevant AAP job templates for:</p>
 <ul>
-<li>Dynatrace AppEngine apps</li>
-<li>Dynatrace API configuration</li>
-<li>Dynatrace EdgeConnect (when private network connectivity requires it)</li>
-<li>Dynatrace OneAgent on target hosts</li>
+<li>Dynatrace AppEngine apps<ul>
+<li><code>destination-automation-deploy-dynatrace-apps</code></li>
 </ul>
-<h2 id="step-3-deploy-the-ai-travel-advisor-application">Step 3: Deploy the AI Travel Advisor Application<a class="headerlink" href="#step-3-deploy-the-ai-travel-advisor-application" title="Permanent link">&para;</a></h2>
-<p>Run the workshop app deployment workflow from AAP:</p>
+</li>
+<li>Dynatrace Monaco project<ul>
+<li><code>destination-automation-deploy-dynatrace-monaco</code></li>
+</ul>
+</li>
+<li>Dynatrace EdgeConnect (when private network connectivity requires it)<ul>
+<li><code>destination-automation-deploy-dynatrace-edgeconnect</code></li>
+<li>Verify you're using the correct value of <code>dynatrace_edgeconnect_oauth_endpoint</code> variable</li>
+</ul>
+</li>
+<li>Dynatrace OneAgent on workshop host<ul>
+<li><code>destination-automation-deploy-dynatrace-oneagent</code></li>
+</ul>
+</li>
+</ul>
+<p><strong>Configure OpenPipeline Routing Tables (Manually):</strong></p>
+<p>OpenPipeline routing tables are comprehensive for the environment.  If existing rules exist in the routing table, applying a new configuration with Monaco will delete/overwrite the existing rules.  To avoid this behavior, for now, routing table rules need to be created manually.</p>
+<p>Logs:</p>
 <ul>
-<li>Build images</li>
-<li>Deploy Podman services</li>
-<li>Verify health endpoints and public access</li>
+<li>Name: </li>
 </ul>
+<pre><code>destination-automation-logs
+</code></pre>
+<ul>
+<li>Matching Condition: </li>
+</ul>
+<pre><code>matchesValue(dt.host_group.id,&quot;destination-automation&quot;)
+</code></pre>
+<ul>
+<li>Pipeline: destination-automation-logs</li>
+</ul>
+<p>Spans:</p>
+<ul>
+<li>Name: </li>
+</ul>
+<pre><code>destination-automation-spans
+</code></pre>
+<ul>
+<li>Matching Condition: </li>
+</ul>
+<pre><code>matchesValue(dt.host_group.id,&quot;destination-automation&quot;)
+</code></pre>
+<ul>
+<li>Pipeline: destination-automation-spans</li>
+</ul>
+<p>BizEvents:</p>
+<ul>
+<li>Name: </li>
+</ul>
+<pre><code>destination-automation-bizevents
+</code></pre>
+<ul>
+<li>Matching Condition: </li>
+</ul>
+<pre><code>matchesValue(dt.host_group.id,&quot;destination-automation&quot;)
+</code></pre>
+<ul>
+<li>Pipeline: destination-automation-bizevents</li>
+</ul>
+<p>Here is an example routing table for logs:
+<img alt="OpenPipeline Routing Logs" src="../../assets/images/dynatrace-openpipeline-logs-routing.png" /></p>
+<p><strong>Enable Workflows Authorization:</strong></p>
+<p>Open the Workflows app.  In the top right corner, click on the gear icon, then Authorization Settings.  Enable all Primary Permissions.  Enable all Secondary Permissions.  Click Save.</p>
+<p><img alt="Workflow Authorization" src="../../assets/images/dynatrace-workflow-authorization.png" /></p>
+<h2 id="step-4-deploy-the-ai-travel-advisor-application">Step 4: Deploy the AI Travel Advisor Application<a class="headerlink" href="#step-4-deploy-the-ai-travel-advisor-application" title="Permanent link">&para;</a></h2>
+<p>Run the workshop app deployment workflow template from AAP:</p>
+<p><code>destination-automation-workflow-deploy-app-clean</code></p>
+<p>This workflow template will perform the following:</p>
+<p><img alt="Workflow" src="../../assets/images/aap-deploy-app-workflow-template-job.png" /></p>
+<ul>
+<li>Remove the app if it already exists</li>
+<li>Remove the images if they already exist</li>
+<li>Build new app images</li>
+<li>Deploy the app as rootless podman containers</li>
+<li>Verify health endpoints and access</li>
+</ul>
+<p>Access the app on port 81 (HTTP) of your public hostname (FQDN or IP).</p>
+<p><img alt="easyTravel AI Travel Advisor" src="../../assets/images/easytrave-ai-travel-advisor-home.png" /></p>
 <h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
 <ul>
-<li>[ ] Dynatrace components are installed and authenticated.</li>
-<li>[ ] OneAgent reports data from the workshop host.</li>
-<li>[ ] App stack is reachable and healthy.</li>
-<li>[ ] AAP workflows complete without failed tasks.</li>
+<li>[ ] Dynatrace components are installed and authenticated</li>
+<li>[ ] OneAgent reports data from the workshop host</li>
+<li>[ ] App stack is reachable and healthy</li>
+<li>[ ] AAP workflows complete without failed tasks</li>
 </ul>
 <p>Continue to <a href="../observe-and-automate/">Observe and Automate</a>.</p>
 

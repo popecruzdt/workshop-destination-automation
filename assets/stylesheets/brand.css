@@ -61,12 +61,67 @@
 
 [data-md-color-scheme="dynatrace-light"] .md-typeset .admonition.tip,
 [data-md-color-scheme="dynatrace-light"] .md-typeset details.tip {
-  border-color: #6edb8f;
+  border-color: #1496ff;
+}
+
+[data-md-color-scheme="dynatrace-light"] .md-typeset .admonition.tip > .admonition-title,
+[data-md-color-scheme="dynatrace-light"] .md-typeset details.tip > summary {
+  background-color: rgba(20, 150, 255, 0.12);
+}
+
+[data-md-color-scheme="dynatrace-light"] .md-typeset .admonition.tip > .admonition-title::before,
+[data-md-color-scheme="dynatrace-light"] .md-typeset details.tip > summary::before {
+  background-color: #1496ff;
+}
+
+[data-md-color-scheme="dynatrace-light"] .md-typeset table {
+  border-collapse: collapse;
+}
+
+[data-md-color-scheme="dynatrace-light"] .md-typeset table th,
+[data-md-color-scheme="dynatrace-light"] .md-typeset table td {
+  border: 1px solid #1496ff;
 }
 
 [data-md-color-scheme="redhat-dark"] .md-typeset .admonition.tip,
 [data-md-color-scheme="redhat-dark"] .md-typeset details.tip {
   border-color: #ff6b6b;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset .admonition.question,
+[data-md-color-scheme="redhat-dark"] .md-typeset details.question {
+  border-color: #e0e0e0;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset .admonition,
+[data-md-color-scheme="redhat-dark"] .md-typeset details {
+  background-color: #1f1f1f;
+  color: #ffffff;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset .admonition-title,
+[data-md-color-scheme="redhat-dark"] .md-typeset summary {
+  background-color: rgba(238, 0, 0, 0.2);
+  color: #ffffff;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset .admonition-title::before,
+[data-md-color-scheme="redhat-dark"] .md-typeset summary::before {
+  background-color: #ffffff;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset table {
+  border-collapse: collapse;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset table th,
+[data-md-color-scheme="redhat-dark"] .md-typeset table td {
+  border: 1px solid #ee0000;
+}
+
+[data-md-color-scheme="redhat-dark"] .md-typeset .admonition a,
+[data-md-color-scheme="redhat-dark"] .md-typeset details a {
+  color: #ff9b9b;
 }
 
 [data-md-color-scheme="redhat-dark"] .md-content,

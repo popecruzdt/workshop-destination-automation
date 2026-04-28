@@ -354,31 +354,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-install-aap-containerized" class="md-nav__link">
+  <a href="#step-1-prepare-the-rhel-9-workshop-host" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Install AAP Containerized
+      Step 1: Prepare the RHEL 9 Workshop Host
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-apply-subscription-and-validate-access" class="md-nav__link">
+  <a href="#step-2-download-the-aap-install-tarball" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Apply Subscription and Validate Access
+      Step 2: Download the AAP Install Tarball
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-build-or-import-workshop-images" class="md-nav__link">
+  <a href="#step-3-install-aap-containerized" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Build or Import Workshop Images
+      Step 3: Install AAP Containerized
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Step 3: Build or Import Workshop Images">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-apply-subscription-and-validate-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Apply Subscription and Validate Access
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-build-or-import-workshop-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Build or Import Workshop Images
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 5: Build or Import Workshop Images">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -391,9 +409,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#option-b-import-prebuilt-images" class="md-nav__link">
+  <a href="#option-b-import-prebuilt-images-recommended" class="md-nav__link">
     <span class="md-ellipsis">
-      Option B: Import prebuilt images
+      Option B: Import prebuilt images (recommended)
     </span>
   </a>
   
@@ -557,31 +575,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-install-aap-containerized" class="md-nav__link">
+  <a href="#step-1-prepare-the-rhel-9-workshop-host" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Install AAP Containerized
+      Step 1: Prepare the RHEL 9 Workshop Host
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-apply-subscription-and-validate-access" class="md-nav__link">
+  <a href="#step-2-download-the-aap-install-tarball" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Apply Subscription and Validate Access
+      Step 2: Download the AAP Install Tarball
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-build-or-import-workshop-images" class="md-nav__link">
+  <a href="#step-3-install-aap-containerized" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Build or Import Workshop Images
+      Step 3: Install AAP Containerized
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Step 3: Build or Import Workshop Images">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-apply-subscription-and-validate-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Apply Subscription and Validate Access
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-build-or-import-workshop-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Build or Import Workshop Images
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 5: Build or Import Workshop Images">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -594,9 +630,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#option-b-import-prebuilt-images" class="md-nav__link">
+  <a href="#option-b-import-prebuilt-images-recommended" class="md-nav__link">
     <span class="md-ellipsis">
-      Option B: Import prebuilt images
+      Option B: Import prebuilt images (recommended)
     </span>
   </a>
   
@@ -642,31 +678,78 @@
 <li>Prepare or import Execution Environment (EE) and Decision Environment (DE) images.</li>
 <li>Validate the platform is ready for deployment workflows.</li>
 </ul>
-<h2 id="step-1-install-aap-containerized">Step 1: Install AAP Containerized<a class="headerlink" href="#step-1-install-aap-containerized" title="Permanent link">&para;</a></h2>
-<p>Set your required variables and run the install playbook.</p>
-<p>```bash
-cd ~/workshop-destination-automation/ansible
-export AAP_PUBLIC_HOSTNAME="<your-public-fqdn>"
-export AAP_INSTALLER_LOCAL_PATH="$HOME/redhat/ansible-automation-platform-setup-bundle.tar.gz"
-export AAP_ADMIN_PASSWORD="<your-strong-password>"</p>
-<p>ansible-playbook provision/playbooks/install_aap_containerized.yml
-```</p>
-<h2 id="step-2-apply-subscription-and-validate-access">Step 2: Apply Subscription and Validate Access<a class="headerlink" href="#step-2-apply-subscription-and-validate-access" title="Permanent link">&para;</a></h2>
+<h2 id="step-1-prepare-the-rhel-9-workshop-host">Step 1: Prepare the RHEL 9 Workshop Host<a class="headerlink" href="#step-1-prepare-the-rhel-9-workshop-host" title="Permanent link">&para;</a></h2>
+<p>Install required packages and clone the workshop repository.</p>
+<pre><code class="language-bash">sudo dnf update -y
+sudo dnf install -y ansible-core
+sudo dnf install -y wget git-core rsync vim nano git
+sudo dnf install -y podman
+sudo dnf install -y python3-pip
+</code></pre>
+<p>Reboot is recommended, but not required.</p>
+<pre><code class="language-bash">sudo reboot
+</code></pre>
+<p>Clone the repository.</p>
+<pre><code class="language-bash">cd ~
+git clone https://github.com/dynatrace-wwse/workshop-destination-automation.git
+</code></pre>
+<h2 id="step-2-download-the-aap-install-tarball">Step 2: Download the AAP Install Tarball<a class="headerlink" href="#step-2-download-the-aap-install-tarball" title="Permanent link">&para;</a></h2>
+<p>Locate the <code>Ansible Automation Platform 2.6 Containerized Setup Bundle</code> for RHEL 9 at
+<a href="https://access.redhat.com/downloads">https://access.redhat.com/downloads</a>, then download it to the host.</p>
+<p><img alt="Red Hat AAP Installer Download" src="../../assets/images/red-hat-aap-installer-download.png" /></p>
+<pre><code class="language-bash">mkdir ~/redhat
+cd ~/redhat
+wget -O ansible-automation-platform-setup-bundle.tar.gz &quot;&lt;your-url-here&gt;&quot;
+</code></pre>
+<h2 id="step-3-install-aap-containerized">Step 3: Install AAP Containerized<a class="headerlink" href="#step-3-install-aap-containerized" title="Permanent link">&para;</a></h2>
+<p>Move into the workshop ansible directory</p>
+<pre><code>cd ~/workshop-destination-automation/ansible
+</code></pre>
+<p>Create AAP target installation directory</p>
+<pre><code>export CURRENT_USER=$(whoami)
+sudo mkdir /opt/ansible
+sudo chown $CURRENT_USER:$CURRENT_USER /opt/ansible
+</code></pre>
+<p>Install ansible-galaxy collections</p>
+<pre><code>mkdir -p ~/.ansible/collections
+ansible-galaxy collection install -r requirements.yml
+</code></pre>
+<p>Set your required variables and run the install playbook.  You may review additional installation variables in the documentation here: <a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/provision/docs/aap_containerized_quickstart.md" target="_blank">AAP Containerized Quickstart</a></p>
+<pre><code class="language-bash">export AAP_PUBLIC_HOSTNAME=&quot;&lt;your-public-fqdn&gt;&quot;
+export AAP_INSTALLER_LOCAL_PATH=&quot;$HOME/redhat/ansible-automation-platform-setup-bundle.tar.gz&quot;
+export AAP_ADMIN_PASSWORD=&quot;&lt;your-strong-password&gt;&quot;
+</code></pre>
+<pre><code class="language-bash">ansible-playbook provision/playbooks/install_aap_containerized.yml
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Time Management Opportunity</p>
+<p>Provisioning Red Hat Ansible Automation Platform will take some time.  It is recommended to create the <a href="../prerequisites/#dynatrace-tokens-and-credentials">Dynatrace Tokens and Credentials</a> while AAP is installing.</p>
+</div>
+<p>After installation completes, you can validate AAP status with the included healthcheck script.</p>
+<pre><code class="language-bash">cd ~/workshop-destination-automation/ansible &amp;&amp; ./aap_status.sh
+</code></pre>
+<h2 id="step-4-apply-subscription-and-validate-access">Step 4: Apply Subscription and Validate Access<a class="headerlink" href="#step-4-apply-subscription-and-validate-access" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Open the AAP web console.</li>
-<li>Apply your subscription/license.</li>
-<li>Confirm Controller and Automation Hub are reachable.</li>
+<li>Open the AAP web console<ul>
+<li>https://{AAP-PUBLIC-HOSTNAME}:443/</li>
+<li>You can expect a TLS certificate warning</li>
 </ul>
-<h2 id="step-3-build-or-import-workshop-images">Step 3: Build or Import Workshop Images<a class="headerlink" href="#step-3-build-or-import-workshop-images" title="Permanent link">&para;</a></h2>
-<p>Use one of the following patterns.</p>
+</li>
+<li>Apply your subscription/license</li>
+<li>Confirm Controller and Automation Hub are reachable</li>
+</ul>
+<h2 id="step-5-build-or-import-workshop-images">Step 5: Build or Import Workshop Images<a class="headerlink" href="#step-5-build-or-import-workshop-images" title="Permanent link">&para;</a></h2>
+<p>This workshop requires specific Ansible collections to be included in the Execution Environments and Decision Environments.  Use one of the following patterns to make the images available in your AAP/EDA instance.</p>
 <h3 id="option-a-build-locally">Option A: Build locally<a class="headerlink" href="#option-a-build-locally" title="Permanent link">&para;</a></h3>
-<p><code>bash
-ansible-playbook provision/playbooks/build_custom_ee.yml
-ansible-playbook provision/playbooks/build_custom_de.yml</code></p>
-<h3 id="option-b-import-prebuilt-images">Option B: Import prebuilt images<a class="headerlink" href="#option-b-import-prebuilt-images" title="Permanent link">&para;</a></h3>
-<p><code>bash
-ansible-playbook provision/playbooks/import_custom_ee.yml
-ansible-playbook provision/playbooks/import_custom_de.yml</code></p>
+<p>If you choose to build locally, the default configurations <strong>may</strong> fail.  You will need to troubleshoot this on your own, requiring Ansible and ansible-builder expertise.</p>
+<pre><code class="language-bash">ansible-playbook provision/playbooks/build_custom_ee.yml
+ansible-playbook provision/playbooks/build_custom_de.yml
+</code></pre>
+<h3 id="option-b-import-prebuilt-images-recommended">Option B: Import prebuilt images (recommended)<a class="headerlink" href="#option-b-import-prebuilt-images-recommended" title="Permanent link">&para;</a></h3>
+<p>Images have been built, tested, and hosted in the GitHub registry for you.</p>
+<pre><code class="language-bash">ansible-playbook provision/playbooks/import_custom_ee.yml
+ansible-playbook provision/playbooks/import_custom_de.yml
+</code></pre>
 <p>Default image sources are provided in the roles and can be overridden with environment variables.</p>
 <h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
 <ul>

@@ -349,14 +349,20 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#software-and-collections" class="md-nav__link">
+    <nav class="md-nav" aria-label="Required Inputs You Should Prepare">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dynatrace-tokens-and-credentials" class="md-nav__link">
     <span class="md-ellipsis">
-      Software and Collections
+      Dynatrace Tokens and Credentials
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -548,14 +554,20 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#software-and-collections" class="md-nav__link">
+    <nav class="md-nav" aria-label="Required Inputs You Should Prepare">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dynatrace-tokens-and-credentials" class="md-nav__link">
     <span class="md-ellipsis">
-      Software and Collections
+      Dynatrace Tokens and Credentials
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -590,37 +602,157 @@
 <p>This section is written for workshop instructors preparing the environment before participants start the lab.</p>
 <h2 id="access-and-accounts">Access and Accounts<a class="headerlink" href="#access-and-accounts" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Access to a RHEL 9 instance with internet egress.</li>
-<li>Access to Red Hat Customer Portal for AAP installer downloads.</li>
-<li>Access to a Dynatrace tenant with rights to deploy apps and settings.</li>
-<li>Access to the workshop repository.</li>
+<li>Access to a RHEL 9 (x86 arch) instance with internet egress</li>
+<li>Access to Red Hat Customer Portal for AAP installer downloads</li>
+<li>Access to a Red Hat Ansible Automation Platform 2.6 Subscription (1+ Node)<ul>
+<li>Trial license/subscription is OK</li>
+</ul>
+</li>
+<li>Access to a Dynatrace tenant with full admin permissions to account and tenant</li>
+<li>Access to the workshop repository (public, read-only)</li>
 </ul>
 <h2 id="host-requirements">Host Requirements<a class="headerlink" href="#host-requirements" title="Permanent link">&para;</a></h2>
 <ul>
-<li>RHEL 9 with sudo privileges.</li>
-<li>Podman installed and usable by the target user.</li>
-<li>Python 3 and ansible-core installed.</li>
-<li>DNS or public hostname assigned for workshop access.</li>
+<li>RHEL 9 with full sudo privileges</li>
+<li>8 CPU and 32 GB Memory and 100+ GB Disk<ul>
+<li>200+ GB Disk recommended to avoid disk space management</li>
+</ul>
+</li>
+<li>DNS or public hostname assigned for workshop access</li>
+<li>Port 22 (SSH) access required for workshop instructor</li>
+<li>Ports 443 (HTTPS) and 81 (HTTP) access required for workshop instructor and participants</li>
 </ul>
 <h2 id="required-inputs-you-should-prepare">Required Inputs You Should Prepare<a class="headerlink" href="#required-inputs-you-should-prepare" title="Permanent link">&para;</a></h2>
 <ul>
-<li>AAP public hostname.</li>
-<li>AAP administrator password.</li>
-<li>Dynatrace environment URL and required tokens.</li>
-<li>Workshop service account details used by Controller and EDA.</li>
+<li>AAP public hostname (public FQDN of RHEL 9 instance)</li>
+<li>AAP administrator password</li>
+<li>Dynatrace environment URL and required tokens</li>
+<li>Workshop service account details used by Controller and EDA</li>
 </ul>
-<h2 id="software-and-collections">Software and Collections<a class="headerlink" href="#software-and-collections" title="Permanent link">&para;</a></h2>
-<p>Install required packages and Ansible collections as described in the repository setup documentation.</p>
-<p><code>bash
-cd ~/workshop-destination-automation/ansible
-mkdir -p ~/.ansible/collections
-ansible-galaxy collection install -r requirements.yml</code></p>
+<h3 id="dynatrace-tokens-and-credentials">Dynatrace Tokens and Credentials<a class="headerlink" href="#dynatrace-tokens-and-credentials" title="Permanent link">&para;</a></h3>
+<p>Using full admin permissions to the Dynatrace account and tenant, create the following tokens/credentials for this workshop.  Store them in a secure location, as you will need to input them into the AAP web interface later.</p>
+<div class="admonition tip">
+<p class="admonition-title">Time Management Opportunity</p>
+<p>Provisioning Red Hat Ansible Automation Platform will take some time (next step).  It is recommended to create these tokens while AAP is installing.</p>
+</div>
+<p><strong>Dynatrace Platform Token (Monaco)</strong></p>
+<p>Use this token for Monaco configuration-as-code deployment.  This token is also used by Ansible roles that create Dynatrace configuration objects not handled by Monaco.</p>
+<p>Reference: <a href="https://docs.dynatrace.com/docs/deliver/configuration-as-code/monaco/guides/create-platform-token#create-a-platform-token">Dynatrace Docs</a></p>
+<p>Required scopes:</p>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Scopes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Access platform metadata like Dynatrace classic URLs and version information</td>
+<td><code>app-engine:apps:run</code>, <code>app-engine:apps:install</code></td>
+</tr>
+<tr>
+<td>Manage Settings 2.0 objects and all-users permission</td>
+<td><code>settings:objects:read</code>, <code>settings:objects:write</code></td>
+</tr>
+<tr>
+<td>View Settings 2.0 schemas</td>
+<td><code>settings:schemas:read</code></td>
+</tr>
+<tr>
+<td>Manage automation workflows</td>
+<td><code>automation:workflows:read</code>, <code>automation:workflows:write</code>, <code>automation:calendars:read</code>, <code>automation:calendars:write</code>, <code>automation:rules:read</code>, <code>automation:rules:write</code></td>
+</tr>
+<tr>
+<td>Access all automation workflows</td>
+<td><code>automation:workflows:admin</code></td>
+</tr>
+<tr>
+<td>Manage documents</td>
+<td><code>document:documents:read</code>, <code>document:documents:write</code>, <code>document:documents:delete</code>, <code>document:trash.documents:read</code>, <code>document:trash.documents:delete</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dynatrace OTLP API token</strong></p>
+<p>Used by the OpenTelemetry Collector export in workshop jobs.</p>
+<p>Reference: <a href="https://docs.dynatrace.com/docs/shortlink/otel-getstarted-otlpexport#authentication-export-to-activegate">Dynatrace Docs</a></p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Scope required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Traces</td>
+<td><code>openTelemetryTrace.ingest</code></td>
+</tr>
+<tr>
+<td>Metrics</td>
+<td><code>metrics.ingest</code></td>
+</tr>
+<tr>
+<td>Logs</td>
+<td><code>logs.ingest</code></td>
+</tr>
+</tbody>
+</table>
+<p>Provide in AAP credential fields:
+- <code>DT_OTLP_ENDPOINT</code>
+- <code>DT_OTLP_TOKEN</code></p>
+<p>Minimum token scopes must match the signals you export (metrics, traces, logs) in your Dynatrace tenant.</p>
+<p><strong>Dynatrace OAuth client credentials (EdgeConnect)</strong></p>
+<p>Primarily used to deploy the EdgeConnect container on the AAP host.  This credential needs permissions to read, write, and manage EdgeConnects and their OAuth clients.</p>
+<p>Required scopes:</p>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Scopes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manage EdgeConnect configurations</td>
+<td><code>app-engine:edge-connects:read</code>, <code>app-engine:edge-connects:write</code>, <code>app-engine:edge-connects:delete</code></td>
+</tr>
+<tr>
+<td>Manage EdgeConnect OAuth</td>
+<td><code>oauth2:clients:manage</code></td>
+</tr>
+</tbody>
+</table>
+<p>Provide in AAP credential fields:
+- <code>DT_OAUTH_CLIENT_ID</code>
+- <code>DT_OAUTH_CLIENT_SECRET</code>
+- <code>DT_OAUTH_ACCOUNT_URN</code></p>
+<p><strong>Dynatrace OneAgent PaaS Token</strong></p>
+<p>Used by OneAgent deployment automation.</p>
+<p>Required scopes:</p>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Scopes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PaaS integration</td>
+<td><code>InstallerDownload</code>, <code>SupportAlert</code></td>
+</tr>
+</tbody>
+</table>
+<p>Provide in AAP credential fields:
+- <code>oneagent_environment_url</code>
+- <code>oneagent_paas_token</code></p>
 <h2 id="instructor-readiness-checklist">Instructor Readiness Checklist<a class="headerlink" href="#instructor-readiness-checklist" title="Permanent link">&para;</a></h2>
 <ul>
-<li>[ ] Verify connectivity to required registries and APIs.</li>
-<li>[ ] Confirm workshop host has available CPU, memory, and disk for containers.</li>
-<li>[ ] Validate that port access policies allow workshop traffic.</li>
-<li>[ ] Confirm all required secrets are available before starting provision.</li>
+<li>[ ] Verify connectivity to required registries and APIs</li>
+<li>[ ] Confirm workshop host has available CPU, memory, and disk for containers</li>
+<li>[ ] Validate that port access policies allow workshop traffic</li>
+<li>[ ] Confirm you are able to create all tokens/credentials</li>
 </ul>
 <p>Continue to <a href="../provision/">Provision</a>.</p>
 

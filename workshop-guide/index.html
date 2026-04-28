@@ -753,7 +753,7 @@
 </ul>
 <hr />
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
-<p><code>┌─────────────────────────────────────────────────────────────────────────────┐
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
 │                 Ansible Automation Platform (Controller + EDA)             │
 │                                                                             │
 │  Provisioning                 Platform Config            Dynatrace Config   │
@@ -781,58 +781,72 @@
   │ easyTravel AI stack  │◄────│ EDA webhook +        │
   │ (public :81)         │     │ automation triggers   │
   │ travel-advisor :8080 │     └──────────────────────┘
-  └──────────────────────┘</code></p>
+  └──────────────────────┘
+</code></pre>
 <hr />
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <h4 id="install-packages">Install packages<a class="headerlink" href="#install-packages" title="Permanent link">&para;</a></h4>
-<p><code>sudo dnf update -y
+<pre><code>sudo dnf update -y
 sudo dnf install -y ansible-core
 sudo dnf install -y wget git-core rsync vim nano git
 sudo dnf install -y podman
-sudo dnf install -y python3-pip</code></p>
-<p><strong>Reboot</strong> (recommended, not required):
-<code>sudo reboot</code></p>
+sudo dnf install -y python3-pip
+</code></pre>
+<p><strong>Reboot</strong> (recommended, not required):</p>
+<pre><code>sudo reboot
+</code></pre>
 <h3 id="clone-the-repository">Clone the repository<a class="headerlink" href="#clone-the-repository" title="Permanent link">&para;</a></h3>
-<p><code>bash
-cd ~
-git clone https://github.com/dynatrace-wwse/workshop-destination-automation.git</code></p>
+<pre><code class="language-bash">cd ~
+git clone https://github.com/dynatrace-wwse/workshop-destination-automation.git
+</code></pre>
 <h2 id="aap-provisioning">AAP Provisioning<a class="headerlink" href="#aap-provisioning" title="Permanent link">&para;</a></h2>
 <h3 id="download-aap-install-tarball">Download AAP install tarball<a class="headerlink" href="#download-aap-install-tarball" title="Permanent link">&para;</a></h3>
-<p>Locate the <code>Ansible Automation Platform 2.6 Containerized Setup Bundle</code> for RHEL 9 at <a href="https://access.redhat.com/downloads">https://access.redhat.com/downloads</a>.
-<code>mkdir ~/redhat
+<p>Locate the <code>Ansible Automation Platform 2.6 Containerized Setup Bundle</code> for RHEL 9 at <a href="https://access.redhat.com/downloads">https://access.redhat.com/downloads</a>.</p>
+<pre><code>mkdir ~/redhat
 cd ~/redhat
-wget -O ansible-automation-platform-setup-bundle.tar.gz "&lt;your-url-here&gt;"</code></p>
+wget -O ansible-automation-platform-setup-bundle.tar.gz &quot;&lt;your-url-here&gt;&quot;
+</code></pre>
 <h3 id="create-ansible-directory">Create ansible directory<a class="headerlink" href="#create-ansible-directory" title="Permanent link">&para;</a></h3>
-<p><code>export CURRENT_USER=$(whoami)
+<pre><code>export CURRENT_USER=$(whoami)
 sudo mkdir /opt/ansible
-sudo chown $CURRENT_USER:$CURRENT_USER /opt/ansible</code></p>
+sudo chown $CURRENT_USER:$CURRENT_USER /opt/ansible
+</code></pre>
 <h3 id="prepare-for-aap-install">Prepare for AAP install<a class="headerlink" href="#prepare-for-aap-install" title="Permanent link">&para;</a></h3>
-<p><code>cd ~/workshop-destination-automation/ansible
-export AAP_PUBLIC_HOSTNAME="&lt;your-public-fqdn-here&gt;"
-export AAP_INSTALLER_LOCAL_PATH="$HOME/redhat/ansible-automation-platform-setup-bundle.tar.gz"
-export AAP_ADMIN_PASSWORD="&lt;your-strong-password-here&gt;"</code></p>
+<pre><code>cd ~/workshop-destination-automation/ansible
+export AAP_PUBLIC_HOSTNAME=&quot;&lt;your-public-fqdn-here&gt;&quot;
+export AAP_INSTALLER_LOCAL_PATH=&quot;$HOME/redhat/ansible-automation-platform-setup-bundle.tar.gz&quot;
+export AAP_ADMIN_PASSWORD=&quot;&lt;your-strong-password-here&gt;&quot;
+</code></pre>
 <h3 id="install-ansible-galaxy-collections">Install ansible-galaxy collections<a class="headerlink" href="#install-ansible-galaxy-collections" title="Permanent link">&para;</a></h3>
-<p><code>mkdir -p ~/.ansible/collections
-ansible-galaxy collection install -r requirements.yml</code></p>
+<pre><code>mkdir -p ~/.ansible/collections
+ansible-galaxy collection install -r requirements.yml
+</code></pre>
 <h3 id="run-the-installation-playbook">Run the installation playbook<a class="headerlink" href="#run-the-installation-playbook" title="Permanent link">&para;</a></h3>
-<p><code>ansible-playbook provision/playbooks/install_aap_containerized.yml</code></p>
+<pre><code>ansible-playbook provision/playbooks/install_aap_containerized.yml
+</code></pre>
 <h3 id="apply-your-subscription-license-via-the-aap-web-interface">Apply your subscription license via the AAP web interface<a class="headerlink" href="#apply-your-subscription-license-via-the-aap-web-interface" title="Permanent link">&para;</a></h3>
 <h3 id="provision-execution-environments-build-or-import">Provision execution environments (build or import)<a class="headerlink" href="#provision-execution-environments-build-or-import" title="Permanent link">&para;</a></h3>
-<p>You can build images locally from source images with ansible-builder:
-<code>ansible-playbook provision/playbooks/build_custom_ee.yml</code></p>
-<p><code>ansible-playbook provision/playbooks/build_custom_de.yml</code></p>
-<p>You can import images created specifically for this workshop:
-<code>ansible-playbook provision/playbooks/import_custom_ee.yml</code>
-This will use: ghcr.io/dynatrace-wwse/destination-automation-oneagent-ee and ghcr.io/dynatrace-wwse/destination-automation-podman-ee</p>
-<p><code>ansible-playbook provision/playbooks/import_custom_ee.yml</code>
-This will use: ghcr.io/dynatrace-wwse/destination-automation-dt-de</p>
+<p>You can build images locally from source images with ansible-builder:</p>
+<pre><code>ansible-playbook provision/playbooks/build_custom_ee.yml
+</code></pre>
+<pre><code>ansible-playbook provision/playbooks/build_custom_de.yml
+</code></pre>
+<p>You can import images created specifically for this workshop:</p>
+<pre><code>ansible-playbook provision/playbooks/import_custom_ee.yml
+</code></pre>
+<p>This will use: ghcr.io/dynatrace-wwse/destination-automation-oneagent-ee and ghcr.io/dynatrace-wwse/destination-automation-podman-ee</p>
+<pre><code>ansible-playbook provision/playbooks/import_custom_ee.yml
+</code></pre>
+<p>This will use: ghcr.io/dynatrace-wwse/destination-automation-dt-de</p>
 <h2 id="aap-deployment">AAP Deployment<a class="headerlink" href="#aap-deployment" title="Permanent link">&para;</a></h2>
 <h3 id="create-aap-service-account-user">Create AAP Service Account user<a class="headerlink" href="#create-aap-service-account-user" title="Permanent link">&para;</a></h3>
 <p>Steps documented in deploy/docs/aap-service-account-setup.md</p>
 <h3 id="deploy-aap-config-objects">Deploy AAP Config Objects<a class="headerlink" href="#deploy-aap-config-objects" title="Permanent link">&para;</a></h3>
-<p><code>ansible-playbook deploy/playbooks/configure_aap.yml</code></p>
+<pre><code>ansible-playbook deploy/playbooks/configure_aap.yml
+</code></pre>
 <h3 id="deploy-eda-config-objects">Deploy EDA Config Objects<a class="headerlink" href="#deploy-eda-config-objects" title="Permanent link">&para;</a></h3>
-<p><code>ansible-playbook deploy/playbooks/configure_eda.yml</code></p>
+<pre><code>ansible-playbook deploy/playbooks/configure_eda.yml
+</code></pre>
 <h3 id="apply-credentials-via-ui">Apply Credentials via UI<a class="headerlink" href="#apply-credentials-via-ui" title="Permanent link">&para;</a></h3>
 <ul>
 <li>[ ] aap-service-account</li>
