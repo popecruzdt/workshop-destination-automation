@@ -619,31 +619,40 @@
 <a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/deploy/docs/aap-service-account-setup.md" target="_blank">ansible/deploy/docs/aap-service-account-setup.md</a></p>
 <h2 id="step-2-configure-aap-and-eda">Step 2: Configure AAP and EDA<a class="headerlink" href="#step-2-configure-aap-and-eda" title="Permanent link">&para;</a></h2>
 <p>Run the bootstrap playbooks from the ansible directory.</p>
+<details class="tip">
+<summary>Workshop Participant Count</summary>
+<p>By default, a single workshop participant user login is created.  You can change the number of participant user logins created by setting the environment variable <code>AAP_PARTICIPANT_COUNT</code>.
+For example, you can generate <code>5</code> participant user logins using:</p>
+<p><code>export AAP_PARTICIPANT_COUNT=5</code></p>
+<p>You'll find the credentials in the <code>/tmp/workshop-destination-automation-passwords/</code> directory (by default).</p>
+</details>
+<p>Deploy Automation Execution (Automation Controller) objects:</p>
 <pre><code class="language-bash">cd ~/workshop-destination-automation/ansible
 ansible-playbook deploy/playbooks/configure_aap.yml
 </code></pre>
+<p>Deploy Automation Decisions (Event-Driven Ansible) objects:</p>
 <pre><code class="language-bash">ansible-playbook deploy/playbooks/configure_eda.yml
 </code></pre>
-<p>After playbook completion, review credentials and inventory objects in the AAP UI.</p>
+<p>After playbook completion, review credentials and inventory objects in the AAP UI.  You'll need to manually update the following credentials in the UI.</p>
 <p><strong>Apply Credentials via UI</strong></p>
 <ul>
-<li>[ ] aap-service-account</li>
+<li>aap-service-account</li>
 </ul>
 <p><img alt="aap-service-account" src="../../assets/images/aap-credential-aap-service-account.png" /></p>
 <ul>
-<li>[ ] destination-automation-dynatrace-monaco</li>
+<li>destination-automation-dynatrace-monaco</li>
 </ul>
 <p><img alt="dynatrace monaco" src="../../assets/images/aap-credential-dynatrace-monaco.png" /></p>
 <ul>
-<li>[ ] destination-automation-dynatrace-oauth</li>
+<li>destination-automation-dynatrace-oauth</li>
 </ul>
 <p><img alt="dynatrace oauth" src="../../assets/images/aap-credential-dynatrace-oauth.png" /></p>
 <ul>
-<li>[ ] destination-automation-dynatrace-oneagent</li>
+<li>destination-automation-dynatrace-oneagent</li>
 </ul>
 <p><img alt="dynatrace oneagent" src="../../assets/images/aap-credential-dynatrace-oneagent.png" /></p>
 <ul>
-<li>[ ] destination-automation-dynatrace-otlp</li>
+<li>destination-automation-dynatrace-otlp</li>
 </ul>
 <p><img alt="dynatrace otlp" src="../../assets/images/aap-credential-dynatrace-otlp.png" /></p>
 <p><strong>Create Job Template Domains (optional, recommended)</strong></p>
@@ -664,6 +673,11 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 <ul>
 <li>Dynatrace AppEngine apps<ul>
 <li><code>destination-automation-deploy-dynatrace-apps</code></li>
+</ul>
+</li>
+<li>Dynatrace API config objects<ul>
+<li><code>destination-automation-deploy-dynatrace-api-config</code></li>
+<li>Contains objects that aren't currently supported by Monaco</li>
 </ul>
 </li>
 <li>Dynatrace Monaco project<ul>
