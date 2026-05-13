@@ -53,11 +53,11 @@ After the devcontainer starts, run the setup script to configure your environmen
 The script will prompt you for:
 
 ### Part 1: Dynatrace Configuration
-- **Dynatrace Environment URL** - Your Dynatrace tenant URL (e.g., `https://abc12345.live.dynatrace.com`)
+- **Dynatrace Environment URL** - Your Dynatrace tenant URL (e.g., `https://abc12345.apps.dynatrace.com`)
 - **Dynatrace API Token** - API token with appropriate permissions for dtctl operations
 
 ### Part 2: Ansible MCP Configuration
-- **AAP MCP Server Hostname** - FQDN with port (e.g., `ec2-3-230-212-158.compute-1.amazonaws.com:8448`)
+- **AAP MCP Server Hostname** - FQDN with port (e.g., `destination-automation.example.com:8448`)
 - **AAP Bearer Token** - Authentication token for MCP server access
 
 ### Part 3: GitHub Copilot Skills

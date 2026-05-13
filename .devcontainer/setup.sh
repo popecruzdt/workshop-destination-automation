@@ -322,7 +322,7 @@ fi
 
 # Check if skills were installed
 if [ "$SKIP_SKILLS" != "true" ] && dtctl config current-context &>/dev/null 2>&1; then
-    SKILL_COUNT=$(dtctl skills list 2>/dev/null | grep -c "." || echo "0")
+    SKILL_COUNT=$(dtctl skills list 2>/dev/null | wc -l | xargs)
     if [ "$SKILL_COUNT" -gt "0" ]; then
         echo -e "${GREEN}✓${NC} GitHub Copilot skills installed"
         echo "  Skills: $SKILL_COUNT Dynatrace AI skills"
