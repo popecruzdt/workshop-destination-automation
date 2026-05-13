@@ -148,3 +148,17 @@
 [data-md-color-scheme="redhat-dark"] .md-tabs__link--active {
   color: #ffffff;
 }
+
+/* Enable word wrapping in code blocks */
+.md-typeset pre,
+.md-typeset pre > code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Ensure inline code also wraps if needed */
+.md-typeset code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

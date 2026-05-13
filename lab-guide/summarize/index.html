@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://dynatrace-wwse.github.io/workshop-destination-automation/lab-guide/summarize/">
       
       
-        <link rel="prev" href="../remediate/">
+        <link rel="prev" href="../delegate/">
       
       
         <link rel="next" href="../clean/">
@@ -376,6 +376,26 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../delegate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Delegate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -437,6 +457,15 @@
   <a href="#what-you-learned" class="md-nav__link">
     <span class="md-ellipsis">
       What You Learned
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-delegation-advantage" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Delegation Advantage
     </span>
   </a>
   
@@ -524,6 +553,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-delegation-advantage" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Delegation Advantage
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#recommended-next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Recommended Next Steps
@@ -559,18 +597,37 @@
 <li>Deployed the easyTravel AI Travel Advisor stack using Ansible-orchestrated Podman automation.</li>
 <li>Observed AI workload behavior and compared outcomes after controlled runtime changes.</li>
 <li>Executed autonomous remediation where Dynatrace detections triggered EDA recovery actions.</li>
+<li>Configured AI coding agents (GitHub Copilot) with Dynatrace <code>dtctl</code> skills and the Ansible MCP Server.</li>
+<li>Delegated observability queries and automation workflows to AI agents using natural language.</li>
+<li>Executed end-to-end "analyze and remediate" tasks through conversational delegation.</li>
 </ul>
 <h2 id="what-you-learned">What You Learned<a class="headerlink" href="#what-you-learned" title="Permanent link">&para;</a></h2>
 <ul>
 <li>How to combine observability and automation for reliable AI service delivery.</li>
 <li>How event-driven operations reduce response time and manual toil.</li>
 <li>How to validate model and retrieval configuration changes with telemetry-backed evidence.</li>
+<li>How AI coding agents lower the skill barrier for observability investigations and automation execution.</li>
+<li>How conversational delegation collapses multi-system workflows from minutes into seconds while maintaining human oversight.</li>
+<li>How tool approval patterns preserve safety and accountability when AI agents execute state-changing operations.</li>
 </ul>
+<h2 id="the-delegation-advantage">The Delegation Advantage<a class="headerlink" href="#the-delegation-advantage" title="Permanent link">&para;</a></h2>
+<p>The Delegate phase demonstrated a fundamental shift in how platform teams interact with observability and automation platforms:</p>
+<p><strong>From Manual to Conversational</strong></p>
+<p>Instead of navigating UIs, writing DQL queries by hand, or locating job templates across AAP projects, engineers express intent in natural language. AI agents handle the mechanical translation between systems.</p>
+<p><strong>From Sequential to Composed</strong></p>
+<p>A single delegated request—"analyze models, pick the fastest, deploy it"—triggers queries to Dynatrace, reasoning over results, job launches in AAP, and verification checks. What once required context-switching across multiple tools now flows through one conversational interface.</p>
+<p><strong>From Specialized to Accessible</strong></p>
+<p>Deep expertise in DQL syntax, AAP API patterns, or EDA rulebook structures is no longer a prerequisite. Domain experts can investigate and act using the same natural language they use to describe problems to teammates.</p>
+<p><strong>Transparency and Control</strong></p>
+<p>Every tool call remains visible and requires approval before execution. Delegated automation is auditable through the same AAP job logs, Dynatrace traces, and chat transcripts teams already use for troubleshooting and compliance.</p>
 <h2 id="recommended-next-steps">Recommended Next Steps<a class="headerlink" href="#recommended-next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Expand detection rules for additional AI quality and cost controls.</li>
 <li>Add policy-driven approvals for high-impact automation paths.</li>
 <li>Integrate this pattern into broader platform engineering workflows.</li>
+<li>Extend AI agent capabilities by adding MCP servers for additional systems (ServiceNow, Kubernetes, GitHub).</li>
+<li>Build custom <code>dtctl</code> skills for domain-specific observability patterns in your organization.</li>
+<li>Define delegation boundaries: identify which workflows should remain human-driven versus agent-assisted.</li>
 </ul>
 <p>Continue to <a href="../clean/">Clean</a>.</p>
 
