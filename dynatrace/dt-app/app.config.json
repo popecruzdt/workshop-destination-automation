@@ -1,0 +1,14 @@
+{
+  "$schema": "./.dt-app/app.config.schema.json",
+  "environmentUrl": "https://hfn13693.apps.dynatrace.com/",
+  "app": {
+    "name": "Destination Automation",
+    "version": "0.0.0",
+    "description": "Dynatrace custom app starter for the Destination Automation workshop",
+    "id": "my.destination.automation",
+    "scopes": [
+      { "name": "storage:logs:read", "comment": "default template" },
+      { "name": "storage:buckets:read", "comment": "default template" }
+    ]
+  }
+}
