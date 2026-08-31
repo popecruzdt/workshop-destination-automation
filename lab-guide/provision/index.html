@@ -363,18 +363,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-download-the-aap-install-tarball" class="md-nav__link">
+  <a href="#step-2-download-the-ansible-automation-platform-install-tarball" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Download the AAP Install Tarball
+      Step 2: Download the Ansible Automation Platform Install Tarball
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-install-aap-containerized" class="md-nav__link">
+  <a href="#step-3-install-ansible-automation-platform-containerized" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Install AAP Containerized
+      Step 3: Install Ansible Automation Platform Containerized
     </span>
   </a>
   
@@ -604,18 +604,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-download-the-aap-install-tarball" class="md-nav__link">
+  <a href="#step-2-download-the-ansible-automation-platform-install-tarball" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Download the AAP Install Tarball
+      Step 2: Download the Ansible Automation Platform Install Tarball
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-3-install-aap-containerized" class="md-nav__link">
+  <a href="#step-3-install-ansible-automation-platform-containerized" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Install AAP Containerized
+      Step 3: Install Ansible Automation Platform Containerized
     </span>
   </a>
   
@@ -713,19 +713,19 @@ sudo dnf install -y python3-pip
 <pre><code class="language-bash">cd ~
 git clone https://github.com/dynatrace-wwse/workshop-destination-automation.git
 </code></pre>
-<h2 id="step-2-download-the-aap-install-tarball">Step 2: Download the AAP Install Tarball<a class="headerlink" href="#step-2-download-the-aap-install-tarball" title="Permanent link">&para;</a></h2>
+<h2 id="step-2-download-the-ansible-automation-platform-install-tarball">Step 2: Download the Ansible Automation Platform Install Tarball<a class="headerlink" href="#step-2-download-the-ansible-automation-platform-install-tarball" title="Permanent link">&para;</a></h2>
 <p>Locate the <code>Ansible Automation Platform 2.6 Containerized Setup Bundle</code> for RHEL 9 at
 <a href="https://access.redhat.com/downloads">https://access.redhat.com/downloads</a>, then download it to the host.</p>
-<p><img alt="Red Hat AAP Installer Download" src="../../assets/images/red-hat-aap-installer-download.png" /></p>
+<p><img alt="Red Hat Ansible Automation Platform Installer Download" src="../../assets/images/red-hat-aap-installer-download.png" /></p>
 <pre><code class="language-bash">mkdir ~/redhat
 cd ~/redhat
 wget -O ansible-automation-platform-setup-bundle.tar.gz &quot;&lt;your-url-here&gt;&quot;
 </code></pre>
-<h2 id="step-3-install-aap-containerized">Step 3: Install AAP Containerized<a class="headerlink" href="#step-3-install-aap-containerized" title="Permanent link">&para;</a></h2>
+<h2 id="step-3-install-ansible-automation-platform-containerized">Step 3: Install Ansible Automation Platform Containerized<a class="headerlink" href="#step-3-install-ansible-automation-platform-containerized" title="Permanent link">&para;</a></h2>
 <p>Move into the workshop ansible directory</p>
 <pre><code>cd ~/workshop-destination-automation/ansible
 </code></pre>
-<p>Create AAP target installation directory</p>
+<p>Create Ansible Automation Platform target installation directory</p>
 <pre><code>export CURRENT_USER=$(whoami)
 sudo mkdir /opt/ansible
 sudo chown $CURRENT_USER:$CURRENT_USER /opt/ansible
@@ -734,7 +734,7 @@ sudo chown $CURRENT_USER:$CURRENT_USER /opt/ansible
 <pre><code>mkdir -p ~/.ansible/collections
 ansible-galaxy collection install -r requirements.yml
 </code></pre>
-<p>Set your required variables and run the install playbook.  You may review additional installation variables in the documentation here: <a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/provision/docs/aap_containerized_quickstart.md" target="_blank">AAP Containerized Quickstart</a></p>
+<p>Set your required variables and run the install playbook.  You may review additional installation variables in the documentation here: <a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/provision/docs/aap_containerized_quickstart.md" target="_blank">Ansible Automation Platform Containerized Quickstart</a></p>
 <pre><code class="language-bash">export AAP_PUBLIC_HOSTNAME=&quot;&lt;your-public-fqdn&gt;&quot;
 export AAP_INSTALLER_LOCAL_PATH=&quot;$HOME/redhat/ansible-automation-platform-setup-bundle.tar.gz&quot;
 export AAP_ADMIN_PASSWORD=&quot;&lt;your-strong-password&gt;&quot;
@@ -743,14 +743,14 @@ export AAP_ADMIN_PASSWORD=&quot;&lt;your-strong-password&gt;&quot;
 </code></pre>
 <div class="admonition tip">
 <p class="admonition-title">Time Management Opportunity</p>
-<p>Provisioning Red Hat Ansible Automation Platform will take some time.  It is recommended to create the <a href="../prerequisites/#dynatrace-tokens-and-credentials">Dynatrace Tokens and Credentials</a> while AAP is installing.</p>
+<p>Provisioning Red Hat Ansible Automation Platform will take some time.  It is recommended to create the <a href="../prerequisites/#dynatrace-tokens-and-credentials">Dynatrace Tokens and Credentials</a> while Ansible Automation Platform is installing.</p>
 </div>
-<p>After installation completes, you can validate AAP status with the included healthcheck script.</p>
+<p>After installation completes, you can validate Ansible Automation Platform status with the included healthcheck script.</p>
 <pre><code class="language-bash">cd ~/workshop-destination-automation/ansible &amp;&amp; ./aap_status.sh
 </code></pre>
 <h2 id="step-4-apply-subscription-and-validate-access">Step 4: Apply Subscription and Validate Access<a class="headerlink" href="#step-4-apply-subscription-and-validate-access" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Open the AAP web console<ul>
+<li>Open the Ansible web console<ul>
 <li>https://{AAP-PUBLIC-HOSTNAME}:443/</li>
 <li>You can expect a TLS certificate warning</li>
 </ul>
@@ -759,7 +759,7 @@ export AAP_ADMIN_PASSWORD=&quot;&lt;your-strong-password&gt;&quot;
 <li>Confirm Controller and Automation Hub are reachable</li>
 </ul>
 <h2 id="step-5-build-or-import-workshop-images">Step 5: Build or Import Workshop Images<a class="headerlink" href="#step-5-build-or-import-workshop-images" title="Permanent link">&para;</a></h2>
-<p>This workshop requires specific Ansible collections to be included in the Execution Environments and Decision Environments.  Use one of the following patterns to make the images available in your AAP/EDA instance.</p>
+<p>This workshop requires specific Ansible collections to be included in the Execution Environments and Decision Environments.  Use one of the following patterns to make the images available in your Ansible Automation Platform instance.</p>
 <h3 id="option-a-build-locally">Option A: Build locally<a class="headerlink" href="#option-a-build-locally" title="Permanent link">&para;</a></h3>
 <p>If you choose to build locally, the default configurations <strong>may</strong> fail.  You will need to troubleshoot this on your own, requiring Ansible and ansible-builder expertise.</p>
 <pre><code class="language-bash">ansible-playbook provision/playbooks/build_custom_ee.yml
@@ -773,7 +773,7 @@ ansible-playbook provision/playbooks/import_custom_de.yml
 <p>Default image sources are provided in the roles and can be overridden with environment variables.</p>
 <h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
 <ul>
-<li>[ ] AAP services are healthy on the host.</li>
+<li>[ ] Ansible Automation Platform services are healthy on the host.</li>
 <li>[ ] Controller login is successful.</li>
 <li>[ ] Required EE and DE images exist in Automation Hub and can be referenced later.</li>
 </ul>

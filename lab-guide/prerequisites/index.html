@@ -623,7 +623,7 @@
 <h2 id="access-and-accounts">Access and Accounts<a class="headerlink" href="#access-and-accounts" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Access to a RHEL 9 (x86 arch) instance with internet egress</li>
-<li>Access to Red Hat Customer Portal for AAP installer downloads</li>
+<li>Access to Red Hat Customer Portal for Ansible Automation Platform installer downloads</li>
 <li>Access to a Red Hat Ansible Automation Platform 2.6 Subscription (1+ Node)<ul>
 <li>Trial license/subscription is OK</li>
 </ul>
@@ -644,16 +644,16 @@
 </ul>
 <h2 id="required-inputs-you-should-prepare">Required Inputs You Should Prepare<a class="headerlink" href="#required-inputs-you-should-prepare" title="Permanent link">&para;</a></h2>
 <ul>
-<li>AAP public hostname (public FQDN of RHEL 9 instance)</li>
-<li>AAP administrator password</li>
+<li>Ansible Automation Platform public hostname (public FQDN of RHEL 9 instance)</li>
+<li>Ansible Automation Platform administrator password</li>
 <li>Dynatrace environment URL and required tokens</li>
 <li>Workshop service account details used by Controller and EDA</li>
 </ul>
 <h3 id="dynatrace-tokens-and-credentials">Dynatrace Tokens and Credentials<a class="headerlink" href="#dynatrace-tokens-and-credentials" title="Permanent link">&para;</a></h3>
-<p>Using full admin permissions to the Dynatrace account and tenant, create the following tokens/credentials for this workshop.  Store them in a secure location, as you will need to input them into the AAP web interface later.</p>
+<p>Using full admin permissions to the Dynatrace account and tenant, create the following tokens/credentials for this workshop.  Store them in a secure location, as you will need to input them into the Ansible web interface later.</p>
 <div class="admonition tip">
 <p class="admonition-title">Time Management Opportunity</p>
-<p>Provisioning Red Hat Ansible Automation Platform will take some time (next step).  It is recommended to create these tokens while AAP is installing.</p>
+<p>Provisioning Red Hat Ansible Automation Platform will take some time (next step).  It is recommended to create these tokens while Ansible Automation Platform is installing.</p>
 </div>
 <p><strong>Dynatrace Platform Token (Monaco)</strong></p>
 <p>Use this token for Monaco configuration-as-code deployment.  This token is also used by Ansible roles that create Dynatrace configuration objects not handled by Monaco.</p>
@@ -718,12 +718,12 @@
 </tr>
 </tbody>
 </table>
-<p>Provide in AAP credential fields:
+<p>Provide in Ansible credential fields:
 - <code>DT_OTLP_ENDPOINT</code>
 - <code>DT_OTLP_TOKEN</code></p>
 <p>Minimum token scopes must match the signals you export (metrics, traces, logs) in your Dynatrace tenant.</p>
 <p><strong>Dynatrace OAuth client credentials (EdgeConnect)</strong></p>
-<p>Primarily used to deploy the EdgeConnect container on the AAP host.  This credential needs permissions to read, write, and manage EdgeConnects and their OAuth clients.</p>
+<p>Primarily used to deploy the EdgeConnect container on the Ansible Automation Platform host.  This credential needs permissions to read, write, and manage EdgeConnects and their OAuth clients.</p>
 <p>Required scopes:</p>
 <table>
 <thead>
@@ -743,7 +743,7 @@
 </tr>
 </tbody>
 </table>
-<p>Provide in AAP credential fields:
+<p>Provide in Ansible credential fields:
 - <code>DT_OAUTH_CLIENT_ID</code>
 - <code>DT_OAUTH_CLIENT_SECRET</code>
 - <code>DT_OAUTH_ACCOUNT_URN</code></p>
@@ -764,7 +764,7 @@
 </tr>
 </tbody>
 </table>
-<p>Provide in AAP credential fields:
+<p>Provide in Ansible credential fields:
 - <code>oneagent_environment_url</code>
 - <code>oneagent_paas_token</code></p>
 <h2 id="instructor-readiness-checklist">Instructor Readiness Checklist<a class="headerlink" href="#instructor-readiness-checklist" title="Permanent link">&para;</a></h2>

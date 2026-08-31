@@ -374,18 +374,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-create-aap-service-account-user" class="md-nav__link">
+  <a href="#step-1-create-ansible-automation-platform-service-account-user" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Create AAP Service Account User
+      Step 1: Create Ansible Automation Platform Service Account User
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-configure-aap-and-eda" class="md-nav__link">
+  <a href="#step-2-configure-ansible-automation-platform-and-eda" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Configure AAP and EDA
+      Step 2: Configure Ansible Automation Platform and EDA
     </span>
   </a>
   
@@ -562,18 +562,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-create-aap-service-account-user" class="md-nav__link">
+  <a href="#step-1-create-ansible-automation-platform-service-account-user" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Create AAP Service Account User
+      Step 1: Create Ansible Automation Platform Service Account User
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-2-configure-aap-and-eda" class="md-nav__link">
+  <a href="#step-2-configure-ansible-automation-platform-and-eda" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Configure AAP and EDA
+      Step 2: Configure Ansible Automation Platform and EDA
     </span>
   </a>
   
@@ -625,19 +625,19 @@
 
 
 <h1 id="deploy">Deploy<a class="headerlink" href="#deploy" title="Permanent link">&para;</a></h1>
-<p>Deployment uses Red Hat AAP to configure platform objects and deliver both observability components and the AI application stack.</p>
+<p>Deployment uses Red Hat Ansible Automation Platform to configure platform objects and deliver both observability components and the AI application stack.</p>
 <h2 id="objectives">Objectives<a class="headerlink" href="#objectives" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Configure AAP Controller and EDA objects for the workshop.</li>
+<li>Configure Ansible Controller and EDA objects for the workshop.</li>
 <li>Deploy Dynatrace apps and API settings.</li>
 <li>Deploy EdgeConnect and OneAgent.</li>
 <li>Build and deploy the easyTravel AI Travel Advisor stack using Podman workflows.</li>
 </ul>
-<h2 id="step-1-create-aap-service-account-user">Step 1: Create AAP Service Account User<a class="headerlink" href="#step-1-create-aap-service-account-user" title="Permanent link">&para;</a></h2>
+<h2 id="step-1-create-ansible-automation-platform-service-account-user">Step 1: Create Ansible Automation Platform Service Account User<a class="headerlink" href="#step-1-create-ansible-automation-platform-service-account-user" title="Permanent link">&para;</a></h2>
 <p>Before running deployment automation, create and validate the <code>aap-service-account</code> user on the RHEL host.</p>
 <p>Reference guide:
 <a href="https://github.com/dynatrace-wwse/workshop-destination-automation/blob/main/ansible/deploy/docs/aap-service-account-setup.md" target="_blank">ansible/deploy/docs/aap-service-account-setup.md</a></p>
-<h2 id="step-2-configure-aap-and-eda">Step 2: Configure AAP and EDA<a class="headerlink" href="#step-2-configure-aap-and-eda" title="Permanent link">&para;</a></h2>
+<h2 id="step-2-configure-ansible-automation-platform-and-eda">Step 2: Configure Ansible Automation Platform and EDA<a class="headerlink" href="#step-2-configure-ansible-automation-platform-and-eda" title="Permanent link">&para;</a></h2>
 <p>Run the bootstrap playbooks from the ansible directory.</p>
 <details class="tip">
 <summary>Workshop Participant Count</summary>
@@ -653,7 +653,7 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 <p>Deploy Automation Decisions (Event-Driven Ansible) objects:</p>
 <pre><code class="language-bash">ansible-playbook deploy/playbooks/configure_eda.yml
 </code></pre>
-<p>After playbook completion, review credentials and inventory objects in the AAP UI.  You'll need to manually update the following credentials in the UI.</p>
+<p>After playbook completion, review credentials and inventory objects in the Ansible web UI.  You'll need to manually update the following credentials in the UI.</p>
 <p><strong>Apply Credentials via UI</strong></p>
 <ul>
 <li>aap-service-account</li>
@@ -676,7 +676,7 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 </ul>
 <p><img alt="dynatrace otlp" src="../../assets/images/aap-credential-dynatrace-otlp.png" /></p>
 <p><strong>Create Job Template Domains (optional, recommended)</strong></p>
-<p>AAP Web UI -&gt; Automation Execution (Automation Controller) -&gt; Templates: Configure Domains (🔧 wrench icon)</p>
+<p>Ansible Web UI -&gt; Automation Execution (Automation Controller) -&gt; Templates: Configure Domains (🔧 wrench icon)</p>
 <ul>
 <li>Name: Dynatrace<ul>
 <li>Labels: dynatrace</li>
@@ -689,7 +689,7 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 </ul>
 <p><img alt="Domains" src="../../assets/images/aap-template-domains.png" /></p>
 <h2 id="step-3-deploy-dynatrace-components">Step 3: Deploy Dynatrace Components<a class="headerlink" href="#step-3-deploy-dynatrace-components" title="Permanent link">&para;</a></h2>
-<p>Launch the relevant AAP job templates for:</p>
+<p>Launch the relevant Ansible job templates for:</p>
 <ul>
 <li>Dynatrace AppEngine apps<ul>
 <li><code>destination-automation-deploy-dynatrace-apps</code></li>
@@ -764,7 +764,7 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 <p>Open the Workflows app.  In the top right corner, click on the gear icon, then Authorization Settings.  Enable all Primary Permissions.  Enable all Secondary Permissions.  Click Save.</p>
 <p><img alt="Workflow Authorization" src="../../assets/images/dynatrace-workflow-authorization.png" /></p>
 <h2 id="step-4-deploy-the-ai-travel-advisor-application">Step 4: Deploy the AI Travel Advisor Application<a class="headerlink" href="#step-4-deploy-the-ai-travel-advisor-application" title="Permanent link">&para;</a></h2>
-<p>Run the workshop app deployment workflow template from AAP:</p>
+<p>Run the workshop app deployment workflow template from Ansible Automation Platform:</p>
 <p><code>destination-automation-workflow-deploy-app-clean</code></p>
 <p>This workflow template will perform the following:</p>
 <p><img alt="Workflow" src="../../assets/images/aap-deploy-app-workflow-template-job.png" /></p>
@@ -782,7 +782,7 @@ ansible-playbook deploy/playbooks/configure_aap.yml
 <li>[ ] Dynatrace components are installed and authenticated</li>
 <li>[ ] OneAgent reports data from the workshop host</li>
 <li>[ ] App stack is reachable and healthy</li>
-<li>[ ] AAP workflows complete without failed tasks</li>
+<li>[ ] Ansible workflows complete without failed tasks</li>
 </ul>
 <p>Continue to <a href="../observe-and-automate/">Observe and Automate</a>.</p>
 

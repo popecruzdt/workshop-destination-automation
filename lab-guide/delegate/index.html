@@ -775,19 +775,19 @@
 
 
 <h1 id="delegate">Delegate<a class="headerlink" href="#delegate" title="Permanent link">&para;</a></h1>
-<p>In this phase, you delegate observation and automation tasks to AI coding agents like GitHub Copilot and Claude Code. Instead of manually navigating Dynatrace dashboards or AAP UIs, you express intent in natural language and let the agent invoke Dynatrace <code>dtctl</code> and the Ansible MCP Server on your behalf.</p>
+<p>In this phase, you delegate observation and automation tasks to AI coding agents like GitHub Copilot and Claude Code. Instead of manually navigating Dynatrace dashboards or Ansible web UIs, you express intent in natural language and let the agent invoke Dynatrace <code>dtctl</code> and the Ansible MCP Server on your behalf.</p>
 <h2 id="objectives">Objectives<a class="headerlink" href="#objectives" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Set up a local development environment with the workshop repository</li>
 <li>Install and configure Dynatrace <code>dtctl</code> with AI observability skills for GitHub Copilot</li>
-<li>Configure the Ansible MCP Server for AAP-driven automation</li>
+<li>Configure the Ansible MCP Server for Ansible Automation Platform-driven automation</li>
 <li>Use Copilot to query Dynatrace for AI Travel Advisor telemetry</li>
-<li>Use Copilot to change the AI Travel Advisor runtime through AAP</li>
+<li>Use Copilot to change the AI Travel Advisor runtime through Ansible Automation Platform</li>
 <li>Delegate an end-to-end "analyze and remediate" task to Copilot</li>
 </ul>
 <details class="warning">
 <summary>Self-signed Certificates</summary>
-<p>In this workshop, AAP Gateway and AAP Ansible MCP Server utilize self-signed certificates.  Visual Studio Code will not allow you to connect to the Ansible MCP Server if the cert is untrusted.</p>
+<p>In this workshop, Ansible Automation Platform Gateway and Ansible MCP Server utilize self-signed certificates.  Visual Studio Code will not allow you to connect to the Ansible MCP Server if the cert is untrusted.</p>
 </details>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>Both Dynatrace <code>dtctl</code> and the Ansible MCP Server require token-based authentication. Before proceeding with workspace setup, ensure you have generated the required access tokens with appropriate scopes for your role.</p>
@@ -820,13 +820,13 @@
 <h3 id="red-hat-ansible-automation-platform-token">Red Hat Ansible Automation Platform Token<a class="headerlink" href="#red-hat-ansible-automation-platform-token" title="Permanent link">&para;</a></h3>
 <p>Each user requires a Platform API Token scoped to their workshop role. Instructors need <code>write</code> access to launch job templates and modify resources. Participants need <code>read</code> access to query job status and retrieve execution logs.</p>
 <p><strong>Generate the Token</strong></p>
-<p>Log in to AAP Gateway as your assigned user (instructor or participant). Click your username in the top-right corner and select <strong>User Settings</strong>. Navigate to the <strong>Tokens</strong> tab and click <strong>Create token</strong>.</p>
+<p>Log in to Ansible Automation Platform Gateway as your assigned user (instructor or participant). Click your username in the top-right corner and select <strong>User Settings</strong>. Navigate to the <strong>Tokens</strong> tab and click <strong>Create token</strong>.</p>
 <p>Provide a descriptive name such as <code>workshop-delegate-write</code> or <code>workshop-delegate-read</code> depending on your role. Under <strong>Scope</strong>, select:</p>
 <ul>
 <li><strong>Write</strong> for instructors who will execute job templates and modify application state</li>
 <li><strong>Read</strong> for participants who will observe job executions and query automation status</li>
 </ul>
-<p>Generate the token and copy it immediately—AAP displays it only once. Store it securely as you will use it when configuring the Ansible MCP Server in <a href="#step-1-setup-your-local-workspace">Step 1</a>.</p>
+<p>Generate the token and copy it immediately—Ansible Automation Platform displays it only once. Store it securely as you will use it when configuring the Ansible MCP Server in <a href="#step-1-setup-your-local-workspace">Step 1</a>.</p>
 <details class="warning">
 <summary>Token Security</summary>
 <p>Platform API Tokens provide the same access level as your user credentials. Treat them as sensitive secrets. Do not commit tokens to version control or share them in public channels. When working in a shared environment like GitHub Codespaces, ensure tokens are stored in local configuration files that are excluded from git tracking (<code>.vscode/mcp.json</code> is gitignored in this repository).</p>
@@ -877,20 +877,20 @@ cd workshop-destination-automation
 <p>The installed skills give Copilot a structured knowledge base of DQL syntax, common query patterns, and AI observability concepts. This dramatically improves accuracy: the agent will use <code>toUid()</code> for trace ID filters, double quotes for strings, and look for GenAI attributes on the correct child spans rather than the root span.</p>
 </details>
 <h3 id="ansible-mcp-server-for-copilot">Ansible MCP Server for Copilot<a class="headerlink" href="#ansible-mcp-server-for-copilot" title="Permanent link">&para;</a></h3>
-<p>The Model Context Protocol (MCP) is an open standard enabling AI agents to securely connect to external systems. MCP Servers bridge AI agents and APIs, translating natural-language requests into authenticated calls and returning structured responses. The Ansible MCP Server implements this for Red Hat Ansible Automation Platform, exposing AAP resources as callable tools. It provides job template discovery and launch, execution monitoring and log retrieval, inventory inspection, and organization-scoped filtering. In this lab, you'll configure it with a Platform API Token so Copilot can list templates, launch jobs with custom variables, monitor execution, and retrieve output through conversational prompts.</p>
+<p>The Model Context Protocol (MCP) is an open standard enabling AI agents to securely connect to external systems. MCP Servers bridge AI agents and APIs, translating natural-language requests into authenticated calls and returning structured responses. The Ansible MCP Server implements this for Red Hat Ansible Automation Platform, exposing Ansible Automation Platform resources as callable tools. It provides job template discovery and launch, execution monitoring and log retrieval, inventory inspection, and organization-scoped filtering. In this lab, you'll configure it with a Platform API Token so Copilot can list templates, launch jobs with custom variables, monitor execution, and retrieve output through conversational prompts.</p>
 <p><strong>Configure</strong></p>
-<p>Log in to AAP as your assigned user (instructor or participant).  From your user profile, manually generate a <strong>Platform API Token</strong> with the appropriate scope:</p>
+<p>Log in to Ansible Automation Platform as your assigned user (instructor or participant).  From your user profile, manually generate a <strong>Platform API Token</strong> with the appropriate scope:</p>
 <ul>
 <li><strong>write</strong> for instructors who will launch and modify resources</li>
 <li><strong>read</strong> for participants who will primarily observe</li>
 </ul>
 <p>Open the VS Code MCP configuration (<code>.vscode/mcp.json</code>) and add the Ansible MCP Server entries (job manager, inventory, etc.), supplying:
-    - the AAP base URL
+    - the Ansible Automation Platform base URL
     - the platform API token from the previous step</p>
 <p>Reload the MCP server configuration in VS Code</p>
 <p><strong>Validate</strong></p>
 <p>Validate the integration by asking Copilot:</p>
-<pre><code>List the AAP job templates in the destination-automation project that have the app label.
+<pre><code>List the Ansible job templates in the destination-automation project that have the app label.
 </code></pre>
 <details class="warning">
 <summary>Token Scope Matters</summary>
@@ -918,23 +918,23 @@ cd workshop-destination-automation
 <p>In the Copilot chat, ask:</p>
 <pre><code>Find all failed Ansible Automation Platform jobs in the last 24 hours.  Provide the job identifier, job template name, target node, start time, and briefly explain which task caused them to fail and why.
 </code></pre>
-<p>Copilot will identify that the Ansible MCP Server(s) are available providing access to a broad inventory of tools that can be used to interact with AAP.  After making several calls to AAP, you should receive a summary of failed jobs.  Please note, there may not be any failed jobs.</p>
+<p>Copilot will identify that the Ansible MCP Server(s) are available providing access to a broad inventory of tools that can be used to interact with Ansible Automation Platform.  After making several calls to Ansible Automation Platform, you should receive a summary of failed jobs.  Please note, there may not be any failed jobs.</p>
 <details class="warning">
 <summary>Approve Tool Calls</summary>
 <p>AI coding agents request your approval before invoking tools that change system state. When Copilot proposes an Ansible MCP Server call to launch a job template, review the template name, target inventory, and <code>extra_vars</code> payload before approving. Human-in-the-loop review keeps delegated automation safe: you remain accountable for what the agent does, even when it acts on your behalf.</p>
 </details>
 <p>Now ask Copilot about jobs that restarted the AI Travel Advisor application:</p>
-<pre><code>Using AAP, how many times has the destination-automation app been recycled/restarted using an Ansible job in the last 24 hours?
+<pre><code>Using Ansible Automation Platform, how many times has the destination-automation app been recycled/restarted using an Ansible job in the last 24 hours?
 </code></pre>
 <p>Finally, ask Copilot about remediations that were performed using Dynatrace + Event-Driven Ansible integration:</p>
-<pre><code>Using AAP, tell me about any remediations that were performed using Dynatrace + Event-Driven Ansible for the destination-automation app in the last 24 hours.
+<pre><code>Using Ansible Automation Platform, tell me about any remediations that were performed using Dynatrace + Event-Driven Ansible for the destination-automation app in the last 24 hours.
 </code></pre>
 <div class="admonition question">
 <p class="admonition-title">Reflection: Automation Operations at Scale</p>
-<p>How many UI screens and filters would you typically navigate to find failed jobs across multiple templates, correlate them with EDA rule activations, and summarize root causes from job logs? What does it change for platform operations when routine AAP investigations can be conducted through conversational queries instead of manual navigation?</p>
+<p>How many UI screens and filters would you typically navigate to find failed jobs across multiple templates, correlate them with EDA rule activations, and summarize root causes from job logs? What does it change for platform operations when routine Ansible Automation Platform investigations can be conducted through conversational queries instead of manual navigation?</p>
 </div>
 <h2 id="step-4-change-the-ai-runtime-through-copilot">Step 4: Change the AI Runtime Through Copilot<a class="headerlink" href="#step-4-change-the-ai-runtime-through-copilot" title="Permanent link">&para;</a></h2>
-<p>Now move from observation to action. In this step, you delegate a state-changing operation to Copilot, using AAP to reconfigure the AI Travel Advisor's runtime parameters.</p>
+<p>Now move from observation to action. In this step, you delegate a state-changing operation to Copilot, using Ansible Automation Platform to reconfigure the AI Travel Advisor's runtime parameters.</p>
 <p><strong>For Instructors (Write Access)</strong></p>
 <p>In the Copilot chat window, submit the following natural-language request:</p>
 <pre><code>Execute the `destination-automation-workflow-app-ai-runtime` job template and change the requested model to `orca-mini:3b` and the temperature to `0.1`.
@@ -947,7 +947,7 @@ cd workshop-destination-automation
 </ul>
 <p>Wait for Copilot to report the job execution status. Confirm it returns:</p>
 <ul>
-<li>The AAP job identifier</li>
+<li>The Ansible Automation Platform job identifier</li>
 <li>The job's final status (successful, failed, etc.)</li>
 <li>Key output lines from the playbook execution</li>
 </ul>
@@ -974,20 +974,20 @@ cd workshop-destination-automation
 <p>Confirm that Copilot retrieves a trace and reports <code>gen_ai.request.model: orca-mini:3b</code> and <code>gen_ai.request.temperature: 0.1</code> from the span attributes</p>
 <div class="admonition question">
 <p class="admonition-title">Reflection: Delegation with Guardrails</p>
-<p>How many steps would it take to manually launch this job template through the AAP UI, supply the correct variables, monitor execution, and then validate the outcome through a separate Dynatrace query? What risks emerge when state-changing automation can be triggered conversationally, and how does the human-in-the-loop approval pattern preserve safety and accountability?</p>
+<p>How many steps would it take to manually launch this job template through the Ansible web UI, supply the correct variables, monitor execution, and then validate the outcome through a separate Dynatrace query? What risks emerge when state-changing automation can be triggered conversationally, and how does the human-in-the-loop approval pattern preserve safety and accountability?</p>
 </div>
 <h2 id="step-5-delegate-an-end-to-end-task">Step 5: Delegate an End-to-End Task<a class="headerlink" href="#step-5-delegate-an-end-to-end-task" title="Permanent link">&para;</a></h2>
 <p>Now combine observation and action into a single delegated workflow. This is where AI coding agents deliver the most leverage.</p>
 <p><strong>For Instructors Only (Write Access)</strong></p>
-<p>In the Copilot chat, issue a single thorough request requiring both Dynatrace and Red Hat AAP:</p>
-<pre><code>Using Dynatrace, analyze the different AI models that have been used by the AI Travel Advisor in the last 24 hours, pick the model with the lowest average response time based on metric data (not logs or spans), and then use AAP to make sure that model is the one currently being used by the running app instance.
+<p>In the Copilot chat, issue a single thorough request requiring both Dynatrace and Red Hat Ansible Automation Platform:</p>
+<pre><code>Using Dynatrace, analyze the different AI models that have been used by the AI Travel Advisor in the last 24 hours, pick the model with the lowest average response time based on metric data (not logs or spans), and then use Ansible Automation Platform to make sure that model is the one currently being used by the running app instance.
 </code></pre>
 <p>Observe how the agent:</p>
 <ul>
 <li>Queries Dynatrace via <code>dtctl</code> to gather per-model performance</li>
 <li>Reasons about the results and selects the fastest model</li>
 <li>Calls the Ansible MCP Server to launch the model-change job template</li>
-<li>Summarizes model performance metric analysis, AAP job execution, and the current state of the environment after performing the tasks you delegated</li>
+<li>Summarizes model performance metric analysis, Ansible job execution, and the current state of the environment after performing the tasks you delegated</li>
 </ul>
 <details class="abstract">
 <summary>What Just Happened</summary>
@@ -995,7 +995,7 @@ cd workshop-destination-automation
 <ul>
 <li>Logging in to Dynatrace and writing DQL</li>
 <li>Interpreting query results across multiple models</li>
-<li>Logging in to AAP and locating the right job templates</li>
+<li>Logging in to Ansible Automation Platform and locating the right job templates</li>
 <li>Launching jobs in the correct order with the right variables</li>
 <li>Verifying the outcome through application APIs</li>
 </ul>
@@ -1004,11 +1004,11 @@ cd workshop-destination-automation
 <h2 id="the-value-of-delegation">The Value of Delegation<a class="headerlink" href="#the-value-of-delegation" title="Permanent link">&para;</a></h2>
 <p>This phase demonstrates a new operating model for hybrid cloud and AI operations:</p>
 <p><strong>Lower the Skill Barrier</strong></p>
-<p>Engineers no longer need deep DQL or AAP API expertise to investigate or remediate. Conversational delegation lets domain experts focus on intent rather than syntax.</p>
+<p>Engineers no longer need deep DQL or Ansible API expertise to investigate or remediate. Conversational delegation lets domain experts focus on intent rather than syntax.</p>
 <p><strong>Faster Time to Action</strong></p>
 <p>Observe, decide, and act collapse from minutes or hours into seconds. The agent handles the mechanical translation between systems while a human stays in control of the decision.</p>
 <p><strong>Auditable Automation</strong></p>
-<p>Every tool call—DQL query, AAP job launch, health check—is visible in the chat transcript. Delegated actions remain traceable, reviewable, and reversible through the same AAP and Dynatrace surfaces you already use.</p>
+<p>Every tool call—DQL query, Ansible job launch, health check—is visible in the chat transcript. Delegated actions remain traceable, reviewable, and reversible through the same Ansible Automation Platform and Dynatrace surfaces you already use.</p>
 <p><strong>Composable Intelligence</strong></p>
 <p><code>dtctl</code> skills and the Ansible MCP Server are two of many possible tools. Adding more MCP-enabled systems (ServiceNow, GitHub, Kubernetes) compounds the value: one agent, many systems, one natural-language interface.</p>
 <div class="admonition question">
@@ -1020,10 +1020,10 @@ cd workshop-destination-automation
 <ul>
 <li>[ ] Workshop repository cloned locally and opened in VS Code</li>
 <li>[ ] <code>dtctl</code> installed, authenticated, and AI skills installed into the workspace</li>
-<li>[ ] Ansible MCP Server configured with a valid AAP platform API token</li>
+<li>[ ] Ansible MCP Server configured with a valid Ansible Automation Platform API token</li>
 <li>[ ] Copilot successfully queried Dynatrace for AI Travel Advisor telemetry</li>
-<li>[ ] Copilot successfully launched an AAP job template to change the AI model</li>
-<li>[ ] End-to-end delegated workflow completed: analyze models -&gt; select best -&gt; apply via AAP -&gt; verify</li>
+<li>[ ] Copilot successfully launched an Ansible job template to change the AI model</li>
+<li>[ ] End-to-end delegated workflow completed: analyze models -&gt; select best -&gt; apply via Ansible Automation Platform -&gt; verify</li>
 </ul>
 <details class="warning">
 <summary>Delete GitHub Codespace</summary>
