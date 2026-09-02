@@ -487,6 +487,8 @@ def initialize_opentelemetry():
             )
 
         setup_weaviate_instrumentation()
+        from src.telemetry.weaviate_tracer import init_weaviate_tracer_provider
+        init_weaviate_tracer_provider(otlp_endpoint, insecure)
         instrument_ollama_middle_span()
         _initialize_otlp_metrics(otlp_endpoint)
         _opentelemetry_initialized = True
