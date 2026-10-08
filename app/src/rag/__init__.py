@@ -21,6 +21,7 @@ from weaviate.config import AdditionalConfig, Timeout
 
 from src.config import get_settings
 from src.feature_flags import get_embedding_override, set_embedding_override
+from src.telemetry.weaviate_tracer import get_weaviate_tracer as _get_weaviate_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -389,31 +390,31 @@ class RAGPipeline:
         logger.info("RAG mode is active")
         logger.info(f"Getting travel advice for: {destination}")
         try:
-            tracer = trace.get_tracer("ai-travel-advisor.weaviate")
+            tracer = _get_weaviate_tracer() or trace.get_tracer("ai-travel-advisor.weaviate")
             results = None
             collection_found = False
             collection_size = 0
             destination_found_in_collection = False
             for attempt in range(1, 3):
                 try:
-                    with tracer.start_as_current_span("weaviate.connect", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span("weaviate.connect", kind=SpanKind.SERVER) as span:
                         self._set_weaviate_common_attributes(span, "connect", destination, attempt)
                         client = self.connect_weaviate()
 
-                    with tracer.start_as_current_span("weaviate.collections.get", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span("weaviate.collections.get", kind=SpanKind.SERVER) as span:
                         self._set_weaviate_common_attributes(span, "collections.get", destination, attempt)
                         kb = client.collections.get("KB")
                     collection_found = True
                     logger.info("Collection found: KB")
 
-                    with tracer.start_as_current_span("weaviate.aggregate.over_all", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span("weaviate.aggregate.over_all", kind=SpanKind.SERVER) as span:
                         self._set_weaviate_common_attributes(span, "aggregate.over_all", destination, attempt)
                         agg = kb.aggregate.over_all(total_count=True)
                         span.set_attribute("weaviate.aggregate.total_count", int(agg.total_count or 0))
                     collection_size = agg.total_count or 0
                     logger.info(f"Collection size: {collection_size}")
 
-                    with tracer.start_as_current_span("weaviate.query.bm25", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span("weaviate.query.bm25", kind=SpanKind.SERVER) as span:
                         self._set_weaviate_common_attributes(span, "query.bm25", destination, attempt)
                         span.set_attribute("weaviate.query.limit", int(self.settings.retrieval_k))
                         exact_results = kb.query.bm25(
@@ -440,7 +441,7 @@ class RAGPipeline:
                     )
                     logger.info(f"Destination found in collection: {destination_found_in_collection}")
 
-                    with tracer.start_as_current_span("weaviate.query.near_text", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span("weaviate.query.near_text", kind=SpanKind.SERVER) as span:
                         self._set_weaviate_common_attributes(span, "query.near_text", destination, attempt)
                         span.set_attribute("weaviate.query.limit", int(self.settings.retrieval_k))
                         span.set_attribute("weaviate.target_vector", "default")
