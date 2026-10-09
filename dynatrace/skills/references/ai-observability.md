@@ -17,11 +17,20 @@ Systems where multiple intelligent agents work together to address complex queri
 Runtime controls that detect and handle unsafe behavior (policy violations, PII exposure, abuse patterns). Guardrails explain why model interactions were blocked, modified, or allowed.
 
 ### Traceloop Span Kind
-The `traceloop.span.kind` attribute organizes LLM framework spans:
+The `traceloop.span.kind` attribute organizes spans created by Traceloop (OpenLLMetry). In the AI Travel Advisor it is set on the `@workflow` spans (`llm_advice_workflow`, `rag_advice_workflow`, `agentic_advice_workflow`):
 - **`workflow`**: High-level process or chain of operations
 - **`task`**: Specific operation within a workflow
 - **`agent`**: Autonomous component making decisions
 - **`tool`**: Utility or function used within the application
+
+### OpenInference Span Kind
+LangChain and LangGraph spans in the AI Travel Advisor come from OpenInference, which sets `openinference.span.kind`:
+- **`AGENT`**: The agent graph run (`travel_agent`)
+- **`CHAIN`**: Graph nodes and routing steps (`call_model`, `plan_fallback`, `tools`, `respond`)
+- **`TOOL`**: Tool calls (`validate_destination`, `search_destination_kb`, `get_current_season`)
+- **`LLM`**: Model calls (span name `ChatOllama`)
+
+The app emits OpenInference attributes only (`llm.model_name`, `llm.token_count.*`, `llm.input_messages.*`, `tool.name`, ...). The `openinference-ai-spans` OpenPipeline pipeline (routed with `isNotNull(openinference.span.kind)`) maps them to `gen_ai.*` at ingest, so query the `gen_ai.*` fields in Grail for spans ingested after the pipeline was applied.
 
 ## OpenTelemetry GenAI Semantic Conventions
 
@@ -147,8 +156,8 @@ fetch spans, from:now()-12h
 ### Analyze agent workflows
 ```dql
 fetch spans, from:now()-6h
-| filter traceloop.span.kind == "workflow" or traceloop.span.kind == "agent"
-| fields timestamp, span.name, service.name, traceloop.span.kind, gen_ai.agent.name, duration
+| filter traceloop.span.kind == "workflow" or gen_ai.operation.name == "invoke_agent" or gen_ai.operation.name == "execute_tool"
+| fields timestamp, span.name, service.name, traceloop.span.kind, openinference.span.kind, gen_ai.agent.name, gen_ai.tool.name, duration
 | sort timestamp desc
 ```
 
@@ -244,8 +253,8 @@ fetch spans, from:now()-6h
 4. Correlate with user feedback or error rates
 
 ### Agent Workflow Analysis
-1. Filter by `traceloop.span.kind` for workflows and agents
-2. Examine tool usage patterns
+1. Filter by `traceloop.span.kind` for workflows and by `gen_ai.operation.name` (`invoke_agent`, `execute_tool`) or `openinference.span.kind` for agents and tools
+2. Examine tool usage patterns (`gen_ai.tool.name`)
 3. Track agent handoffs and decision points
 4. Measure end-to-end workflow duration
 

@@ -25,6 +25,14 @@ from src.config import get_settings
 from src.utils import setup_logging, format_rag_response, format_error_response
 from src.rag import get_rag_pipeline
 from src.telemetry import instrument_ollama_middle_span
+from src.agent import (
+    build_agent_graph,
+    build_tools,
+    load_agentic_prompts,
+    load_known_destinations,
+    model_supports_tools,
+    run_agent,
+)
 
 # Configure logging
 setup_logging()
@@ -83,7 +91,7 @@ class _GenAIModelSpanProcessor(SpanProcessor):
 
         span_name = getattr(span, "name", "")
         # Process GenAI-related operations from OpenLLMetry/LangChain
-        if not self._should_process_span(span_name):
+        if _is_openinference_span(span) or not self._should_process_span(span_name):
             return
 
         try:
@@ -121,7 +129,7 @@ class _GenAIModelSpanProcessor(SpanProcessor):
             pass
 
         span_name = getattr(span, "name", "")
-        if not self._should_process_span(span_name):
+        if _is_openinference_span(span) or not self._should_process_span(span_name):
             return
 
         try:
@@ -221,6 +229,16 @@ class _GenAIModelSpanProcessor(SpanProcessor):
         return True
 
 
+def _is_openinference_span(span) -> bool:
+    """True for spans from OpenInference instrumentation.
+
+    OpenInference spans are left as emitted (for Arize AX); Dynatrace gen_ai.* mapping
+    for them is done in OpenPipeline, not in the app.
+    """
+    scope = getattr(span, "instrumentation_scope", None) or getattr(span, "instrumentation_info", None)
+    return str(getattr(scope, "name", "") or "").startswith("openinference")
+
+
 def _get_span_attribute(span, key: str):
     """Read span attribute from both mutable and readable span representations."""
     try:
@@ -306,6 +324,18 @@ def _set_genai_request_attributes(model_name: str) -> None:
     except Exception:
         # Tracing must never affect request handling.
         pass
+
+
+def setup_openinference_instrumentation():
+    """Instrument LangChain/LangGraph with OpenInference on the global tracer provider."""
+    try:
+        from opentelemetry import trace
+        from openinference.instrumentation.langchain import LangChainInstrumentor
+
+        LangChainInstrumentor().instrument(tracer_provider=trace.get_tracer_provider())
+        logger.info("Enabled OpenInference instrumentation for LangChain/LangGraph")
+    except Exception as e:
+        logger.warning(f"Could not enable OpenInference instrumentation for LangChain: {e}")
 
 
 def setup_weaviate_instrumentation():
@@ -436,49 +466,26 @@ def initialize_opentelemetry():
 
         # Traceloop API changed across versions; support both variants.
         if hasattr(Traceloop, "init"):
+            from traceloop.sdk.instruments import Instruments
+
             ai_model = get_settings().ai_model
             default_processor = Traceloop.get_default_span_processor(
                 exporter=trace_exporter,
             )
             model_attr_processor = _GenAIModelSpanProcessor(ai_model)
+            # LangChain/LangGraph spans come from OpenInference (below), so Traceloop's
+            # LangChain instrumentor is blocked to avoid a duplicate span tree.
+            # openinference.project.name groups traces into a project in Arize AX.
             Traceloop.init(
                 app_name="ai-travel-advisor",
                 processor=[default_processor, model_attr_processor],
+                block_instruments={Instruments.LANGCHAIN},
+                resource_attributes={"openinference.project.name": "ai-travel-advisor"},
                 span_postprocess_callback=lambda span: _normalize_genai_model_attributes(
                     span,
                     ai_model,
                 ),
             )
-
-            # Patch set_request_params in the LangChain instrumentation so
-            # models that don't serialize their name (e.g. ChatOllama) fall back to
-            # the configured model name instead of "unknown".
-            try:
-                import opentelemetry.instrumentation.langchain.span_utils as _lc_span_utils
-                from opentelemetry.semconv._incubating.attributes import (
-                    gen_ai_attributes as _GenAIAttr,
-                )
-                _orig_set_request_params = _lc_span_utils.set_request_params
-
-                def _patched_set_request_params(span, kwargs, span_holder, _model=ai_model):
-                    _orig_set_request_params(span, kwargs, span_holder)
-                    try:
-                        if not _model:
-                            return
-                        is_rec = getattr(span, "is_recording", None)
-                        if callable(is_rec) and not is_rec():
-                            return
-                        attrs = getattr(span, "attributes", {}) or {}
-                        if attrs.get(_GenAIAttr.GEN_AI_REQUEST_MODEL) in (None, "", "unknown"):
-                            span.set_attribute(_GenAIAttr.GEN_AI_REQUEST_MODEL, _model)
-                        if attrs.get(_GenAIAttr.GEN_AI_RESPONSE_MODEL) in (None, "", "unknown"):
-                            span.set_attribute(_GenAIAttr.GEN_AI_RESPONSE_MODEL, _model)
-                    except Exception:
-                        pass
-
-                _lc_span_utils.set_request_params = _patched_set_request_params
-            except Exception:
-                pass
 
         else:
             Traceloop.initialize(
@@ -486,6 +493,7 @@ def initialize_opentelemetry():
                 exporter_url=otlp_endpoint,
             )
 
+        setup_openinference_instrumentation()
         setup_weaviate_instrumentation()
         instrument_ollama_middle_span()
         _initialize_otlp_metrics(otlp_endpoint)
@@ -511,6 +519,7 @@ class AppState:
     rag_pipeline = None
     ollama_client = None
     direct_chat_model = None
+    agent_graph = None
     settings = None
 
 
@@ -577,8 +586,35 @@ async def initialize_app():
     except Exception as e:
         logger.error(f"RAG pipeline initialization failed: {e}")
         raise
-    
+
+    # Initialize agentic workflow (requires Ollama and the RAG pipeline)
+    if AppState.ollama_client and AppState.direct_chat_model:
+        try:
+            initialize_agent_graph(settings)
+        except Exception as e:
+            logger.warning(f"Agentic workflow initialization failed: {e}")
+
     logger.info("AI Travel Advisor initialized successfully")
+
+
+def initialize_agent_graph(settings) -> None:
+    """Build the LangGraph travel agent with tools bound to the shared RAG pipeline."""
+    known_destinations = load_known_destinations(settings.destinations_path)
+    tools = build_tools(AppState.rag_pipeline, known_destinations)
+    system_prompt, respond_prompt = load_agentic_prompts(settings.agentic_prompt_path)
+    supports_tools = model_supports_tools(AppState.ollama_client, settings.ai_model)
+
+    AppState.agent_graph = build_agent_graph(
+        chat_model=AppState.direct_chat_model,
+        tools=tools,
+        known_destinations=known_destinations,
+        system_prompt=system_prompt,
+        respond_prompt=respond_prompt,
+        supports_tools=supports_tools,
+        max_steps=settings.agent_max_steps,
+    )
+    path = "tool calling" if supports_tools else "fallback tool plan"
+    logger.info(f"Agentic workflow initialized with {len(tools)} tools ({path})")
 
 
 async def shutdown_app():
@@ -827,11 +863,54 @@ async def rag_advice(destination: str) -> JSONResponse:
 
 @workflow(name="agentic_advice_workflow")
 async def agentic_advice(destination: str) -> JSONResponse:
-    """Get travel advice using agentic framework (future enhancement)"""
+    """Get travel advice using the LangGraph travel agent and its tools"""
     logger.info(f"Getting agentic advice for: {destination}")
-    
-    # For now, fall back to LLM
-    return await llm_advice(destination)
+
+    if not AppState.ollama_client or not AppState.rag_pipeline:
+        return JSONResponse(
+            status_code=503,
+            content=format_error_response("Ollama or RAG pipeline not available", 503)
+        )
+
+    if not AppState.agent_graph:
+        return JSONResponse(
+            status_code=503,
+            content=format_error_response("Agentic workflow is not ready yet", 503)
+        )
+
+    _attrs = {
+        "gen_ai.system": "ollama",
+        "gen_ai.request.model": get_settings().ai_model,
+        "gen_ai.operation.name": "invoke_agent",
+        "framework": "agentic",
+    }
+    try:
+        _t0 = time.monotonic()
+        # The agent graph runs synchronous LangChain/Ollama/Weaviate calls.
+        # Run it in a worker thread to avoid blocking the async event loop.
+        current_context = contextvars.copy_context()
+        result = await asyncio.to_thread(
+            lambda: current_context.run(
+                run_agent, AppState.agent_graph, destination, get_settings().agent_max_steps
+            )
+        )
+        _elapsed = time.monotonic() - _t0
+        logger.info(f"Agentic workflow completed using the {result.get('path')} path")
+
+        if _inference_duration:
+            _inference_duration.record(_elapsed, attributes=_attrs)
+        if _inference_requests:
+            _inference_requests.add(1, attributes=_attrs)
+
+        return JSONResponse(content=format_rag_response(result.get("answer", "")))
+    except Exception as e:
+        logger.error(f"Agentic advice error: {e}")
+        if _inference_requests:
+            _inference_requests.add(1, attributes={**_attrs, "error.type": type(e).__name__})
+        return JSONResponse(
+            status_code=500,
+            content=format_error_response(str(e), 500)
+        )
 
 
 @workflow(name="prepare_knowledge_base_workflow")

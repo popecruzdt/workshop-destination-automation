@@ -117,7 +117,7 @@ dtctl auth login --context destination-automation --environment "https://abc1234
 
 **Train**
 
-Add a custom reference for AI observability so the agent understands GenAI semantic conventions (`gen_ai.request.model`, `gen_ai.usage.input_tokens`, `traceloop.span.kind`, etc.) used by the AI Travel Advisor instrumentation.
+Add a custom reference for AI observability so the agent understands GenAI semantic conventions (`gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.operation.name`, `openinference.span.kind`, etc.) used by the AI Travel Advisor instrumentation.
 
 ```bash
 cp dynatrace/skills/references/ai-observability.md .github/skills/dtctl/references/ai-observability.md
@@ -275,7 +275,7 @@ Review the response from Copilot. It should extract and present:
 Return to the Copilot chat and verify the runtime change via observability signals:
 
 ```
-Using Dynatrace, fetch the latest distributed trace for the `ai-travel-advisor` service containing a `ChatOllama.chat` span.  Show me the model and temperature.
+Using Dynatrace, fetch the latest distributed trace for the `ai-travel-advisor` service containing a `ChatOllama` span.  Show me the model and temperature.
 ```
 
 Confirm that Copilot retrieves a trace and reports `gen_ai.request.model: orca-mini:3b` and `gen_ai.request.temperature: 0.1` from the span attributes

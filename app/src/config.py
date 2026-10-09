@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     force_reindex: bool = os.getenv("FORCE_REINDEX", "false").lower() == "true"
     min_kb_objects: int = int(os.getenv("MIN_KB_OBJECTS", "450"))
 
+    # Agentic Workflow Configuration
+    agent_max_steps: int = int(os.getenv("AGENT_MAX_STEPS", "8"))
+
     # Observability Configuration
     otel_enabled: bool = os.getenv("OTEL_ENABLED", "false").lower() == "true"
     otel_endpoint: str = os.getenv("OTEL_ENDPOINT", "https://localhost:4317")
@@ -57,6 +60,7 @@ class Settings(BaseSettings):
     destinations_path: str = os.getenv("DESTINATIONS_PATH", "destinations")
     public_path: str = os.getenv("PUBLIC_PATH", "public")
     rag_prompt_path: str = os.getenv("RAG_PROMPT_PATH", "prompts/rag_instructions.txt")
+    agentic_prompt_path: str = os.getenv("AGENTIC_PROMPT_PATH", "prompts/agentic_instructions.txt")
 
     class Config:
         env_file = ".env"

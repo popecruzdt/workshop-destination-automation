@@ -54,6 +54,15 @@ I am traveling to <location>. Suggest a 2-day plan.
 
 Use the same or very similar prompts so your comparison remains fair.
 
+### Repeat Prompts with Agentic
+
+1. Switch the approach to **Agentic**
+2. Ask for travel advice for the same location set used in Direct LLM and RAG
+3. Repeat each request 3-5 times
+4. Again provide thumbs up/down feedback for every response
+
+Agentic mode runs an AI agent that calls tools before it answers: it validates the destination, searches the same destination knowledge base used by RAG, and checks the current season at the destination.
+
 ### Record Baseline Observations
 
 Capture quick notes for each approach:
@@ -81,6 +90,17 @@ Detailed comparison (how it works):
 - Direct LLM is simpler and faster to start, but can be less grounded for specialized or local context
 - RAG adds retrieval overhead but often improves factual relevance, repeatability, and explainability
 - For enterprise AI workloads, RAG is commonly used to improve trust, reduce bad recommendations, and support better cost-quality tradeoffs by using smaller models with stronger context
+
+### Concept: Agentic AI
+
+Simple comparison:
+
+- **Agentic:** You ask the smart friend a question, and they decide which notebooks, checklists, and calendars to look at before answering
+
+Detailed comparison (how it works):
+
+- **Agentic:** An agent (here built with LangGraph) gives the model a set of tools. The model decides which tools to call and with which inputs, the application runs them, and the results are fed back to the model until it has enough information to answer. In this app the tools are a destination validator, a knowledge base search (the same Weaviate retrieval used by RAG), and a current-season helper.
+- Agentic workflows make more model calls than RAG, so they add latency and tokens, but they can combine several sources and handle requests that need more than one lookup. Small models that cannot call tools reliably fall back to a fixed tool plan, which you can see in the traces.
 
 ## Step 2: Observe in Dynatrace
 
@@ -136,6 +156,9 @@ This is where you analyze individual AI services in detail.
 
 !!! tip "OpenLLMetry"
     OpenLLMetry is an open observability approach for LLM applications that captures prompt, response, model, token, latency, and retrieval metadata using OpenTelemetry-aligned telemetry. This turns AI behavior from a black box into measurable signals you can analyze for quality, performance, and cost. With this visibility, teams can detect drift, troubleshoot poor responses, compare model/runtime changes, and make evidence-based tuning decisions. In this workshop, OpenLLMetry-style instrumentation is exported through OpenTelemetry and ingested by Dynatrace AI Observability, where traces, spans, and AI metadata are correlated with infrastructure and application health for end-to-end analysis.
+
+!!! tip "OpenInference"
+    OpenInference is an open set of OpenTelemetry conventions and instrumentations for AI applications, maintained by Arize. In this workshop, LangChain and LangGraph spans (model calls, the `travel_agent` agent, and its tools) are produced by OpenInference, so they work natively in OpenInference tools such as Arize AX. At ingest, a Dynatrace OpenPipeline pipeline maps the OpenInference attributes to OpenTelemetry GenAI attributes (`gen_ai.*`) so the same traces appear in Dynatrace AI Observability.
 
 ### Analyze a Prompt Trace
 

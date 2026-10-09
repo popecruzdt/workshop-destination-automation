@@ -14,6 +14,13 @@ langchain-ollama==0.2.1
 langchain-core==0.3.63
 langchain-text-splitters==0.3.8
 
+# Agentic workflow (LangGraph). langgraph-prebuilt>=0.5 requires langchain-core>=0.3.67,
+# which needs langsmith>=0.3.45 and conflicts with langchain/langchain-community above.
+# Pin prebuilt explicitly: langgraph 0.4.x allows any prebuilt>=0.2.0.
+langgraph==0.4.10
+langgraph-prebuilt==0.2.3
+langgraph-checkpoint>=2.0.26,<3
+
 # Vector Database (Weaviate)
 weaviate-client==4.20.4
 
@@ -37,6 +44,10 @@ opentelemetry-instrumentation-httpx==0.62b0
 opentelemetry-instrumentation-grpc==0.62b0
 python-json-logger==2.0.7
 traceloop-sdk==0.53.3
+# OpenInference instruments LangChain/LangGraph (Traceloop's LangChain instrumentor
+# is blocked in Traceloop.init to avoid duplicate span trees).
+openinference-instrumentation-langchain==0.1.78
+openinference-semantic-conventions>=0.1.41
 # wrapt is a transitive dep of opentelemetry-instrumentation-langchain (via traceloop-sdk).
 # wrapt 2.x removed the module= keyword from wrap_function_wrapper(), breaking the
 # LangChain instrumentor and causing ChatOllama.chat spans to disappear.

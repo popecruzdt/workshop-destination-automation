@@ -16,7 +16,7 @@ The app supports three response modes through `/api/v1/completion`:
 
 - `rag`: recommended mode; retrieves indexed destination content and uses it as context.
 - `llm`: direct model call without retrieval context.
-- `agentic`: currently implemented as a fallback to the direct `llm` path.
+- `agentic`: a LangGraph agent that uses tools (destination validation, KB search in Weaviate, current season) and answers from the tool results. See [Agentic workflow](#agentic-workflow).
 
 ## Runtime Architecture
 
@@ -49,13 +49,15 @@ Key files and directories:
 
 - `src/main.py`: FastAPI app, startup lifecycle, API endpoints, and OpenTelemetry initialization.
 - `src/config.py`: environment-backed settings loaded from `.env` and the process environment.
-- `src/rag/__init__.py`: knowledge-base preparation, retrieval logic, prompt loading, and embedding drift simulation.
+- `src/rag/__init__.py`: knowledge-base preparation, retrieval logic (`retrieve_context`, shared with the agent), prompt loading, and embedding drift simulation.
+- `src/agent/`: LangGraph travel agent (`graph.py`) and its tools (`tools.py`).
 - `src/feature_flags.py`: in-memory OpenFeature flag used to override the embedding model at runtime.
-- `src/telemetry/`: custom Ollama span instrumentation.
+- `src/telemetry/`: custom Ollama span instrumentation and OpenInference-to-GenAI attribute mapping.
 - `src/utils/__init__.py`: logging configuration and API response formatting.
 - `public/index.html`: browser UI.
 - `destinations/`: HTML source documents for the RAG knowledge base.
 - `prompts/rag_instructions.txt`: prompt template used for RAG answers.
+- `prompts/agentic_instructions.txt`: agent system prompt and final-answer prompt for agentic mode.
 - `nginx/default.conf`: reverse proxy for the compose deployment.
 - `Containerfile`: application image build.
 - `podman-compose.yml`: local multi-container runtime definition.
@@ -88,13 +90,31 @@ The RAG flow in `src/rag/__init__.py` works like this:
 
 If no useful context is found, the app returns a constrained fallback response instead of hallucinating details.
 
+### Agentic workflow
+
+Agentic mode runs a LangGraph `StateGraph` named `travel_agent` (`src/agent/graph.py`) with three tools (`src/agent/tools.py`):
+
+- `validate_destination`: checks the destination against the KB destination list (the HTML file names in `DESTINATIONS_PATH`) and suggests close matches.
+- `search_destination_kb`: retrieves destination context from Weaviate through the same `retrieve_context` path as RAG, so embedding drift affects agentic mode too.
+- `get_current_season`: returns today's date and the season at the destination (northern, southern, or tropical). No external API is called.
+
+The graph has two paths:
+
+1. Tool calling: when the model in `AI_MODEL` has the Ollama `tools` capability (for example `qwen2.5` and `llama3.2`), the `call_model` node lets the model choose tools at temperature 0, and the `tools` node runs them in a loop of at most `AGENT_MAX_STEPS` model turns.
+2. Fallback: when the model has no tool support (for example `gemma2`, `gemma3:1b`, `orca-mini`) or returns no tool calls, the `plan_fallback` node calls all three tools in a fixed order through the same `tools` node.
+
+On both paths the `respond` node writes the final answer from the tool results using `AI_TEMPERATURE`. Tool support is detected once at startup with `ollama show`, so restart the app after changing `AI_MODEL`.
+
 ### Prompt control
 
 The RAG response instructions are file-driven. The app loads `prompts/rag_instructions.txt` at runtime when the file exists, otherwise it falls back to an internal prompt string in `src/rag/__init__.py`.
 
+The agentic prompts work the same way: `prompts/agentic_instructions.txt` holds a `### SYSTEM` section (tool-use instructions) and a `### RESPOND` section (final-answer template with `{tool_results}` and `{request}` placeholders), with fallbacks in `src/agent/graph.py`.
+
 That means you can change response behavior without editing Python code by updating:
 
 - `prompts/rag_instructions.txt`
+- `prompts/agentic_instructions.txt`
 - the destination HTML files in `destinations/`
 
 After changing destination files, rebuild the knowledge base with `/api/v1/prepare-kb` or restart the app with `FORCE_REINDEX=true`.
@@ -141,11 +161,16 @@ RAG behavior:
 - `FORCE_REINDEX`
 - `MIN_KB_OBJECTS`
 
+Agentic behavior:
+
+- `AGENT_MAX_STEPS` (default `8`): maximum model turns in the tool-calling loop before the agent answers.
+
 Filesystem paths:
 
 - `DESTINATIONS_PATH`
 - `PUBLIC_PATH`
 - `RAG_PROMPT_PATH`
+- `AGENTIC_PROMPT_PATH` (default `prompts/agentic_instructions.txt`)
 
 OpenTelemetry and tracing:
 
@@ -155,6 +180,13 @@ OpenTelemetry and tracing:
 - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`
 - `OTEL_SERVICE_NAME`
 - `TRACELOOP_TRACE_CONTENT`
+
+Instrumentation sources when `OPENLLMETRY_ENABLED=true`:
+
+- LangChain and LangGraph spans (LLM calls, the `travel_agent` graph, its nodes and tools) come from OpenInference (`openinference-instrumentation-langchain`). Traceloop's LangChain instrumentor is blocked to avoid duplicate spans.
+- Traceloop (OpenLLMetry) still sets up the tracer provider and exporter, the `@workflow` spans (`llm_advice_workflow`, `rag_advice_workflow`, `agentic_advice_workflow`), and its other instrumentors.
+- OpenInference spans are exported as emitted (OpenInference semantic conventions, Arize AX as the primary consumer). The resource attribute `openinference.project.name=ai-travel-advisor` sets the Arize AX project. The app does not add Dynatrace-specific attributes to these spans.
+- For Dynatrace AI Observability, a Dynatrace OpenPipeline spans pipeline (`openinference-ai-spans`, routed with `isNotNull(openinference.span.kind)`) maps OpenInference attributes to `gen_ai.*`, following [Dynatrace's OpenInference guidance](https://docs.dynatrace.com/docs/shortlink/ai-ml-openinference).
 
 Note on legacy config values:
 
@@ -166,6 +198,7 @@ These files directly change app behavior without code edits:
 
 - `destinations/*.html`: the knowledge base source documents.
 - `prompts/rag_instructions.txt`: the retrieval prompt template.
+- `prompts/agentic_instructions.txt`: the agent and final-answer prompts for agentic mode.
 - `public/index.html`: the browser UI.
 - `nginx/default.conf`: external routing for the compose deployment.
 - `opentelemetry/otel-collector-config.yaml`: collector export behavior in the compose deployment.

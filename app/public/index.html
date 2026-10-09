@@ -249,6 +249,11 @@
       color: #135a3c;
     }
 
+    .mode-badge.agentic {
+      background: #ece4ff;
+      color: #4b2a8a;
+    }
+
     .advise-box {
       background: #f8f9fa;
       padding: 30px;
@@ -438,6 +443,7 @@
             <select id="framework" name="framework">
               <option value="llm">Direct LLM</option>
               <option value="rag" selected>RAG</option>
+              <option value="agentic">Agentic</option>
             </select>
           </div>
         </div>
@@ -492,7 +498,7 @@
       <div class="info-section">
         <p><strong>ℹ️ About this application:</strong></p>
         <p>This AI Travel Advisor uses local language models (Ollama) and vector databases (Weaviate) to provide travel recommendations with zero external service dependencies. Your data stays local!</p>
-        <p><strong>Frameworks available:</strong> Direct LLM and RAG (Retrieval-Augmented Generation).</p>
+        <p><strong>Frameworks available:</strong> Direct LLM, RAG (Retrieval-Augmented Generation), and Agentic (a LangGraph agent with tools).</p>
         <p><strong>Destination content source:</strong> Destination files are read from the host-mounted <code>destinations</code> directory when the application starts or when the KB is rebuilt.</p>
       </div>
     </div>
@@ -514,14 +520,17 @@
       return document.getElementById('framework').value;
     }
 
+    const FRAMEWORK_LABELS = { llm: 'Direct LLM', rag: 'RAG', agentic: 'Agentic' };
+    const FRAMEWORK_LOADING_LABELS = { llm: 'direct LLM', rag: 'RAG', agentic: 'agentic' };
+
     function getFrameworkLabel(framework) {
-      return framework === 'llm' ? 'Direct LLM' : 'RAG';
+      return FRAMEWORK_LABELS[framework] || 'RAG';
     }
 
     function updateModeBadge(framework, visible = true) {
       const modeBadge = document.getElementById('modeBadge');
       modeBadge.textContent = getFrameworkLabel(framework);
-      modeBadge.classList.remove('llm', 'rag', 'show');
+      modeBadge.classList.remove('llm', 'rag', 'agentic', 'show');
       modeBadge.classList.add(framework);
       if (visible) {
         modeBadge.classList.add('show');
@@ -534,6 +543,11 @@
       updateModeBadge(framework);
       if (framework === 'llm') {
         modeHint.textContent = 'Direct LLM sends the destination directly to the language model without retrieving destination files.';
+        return;
+      }
+
+      if (framework === 'agentic') {
+        modeHint.textContent = 'Agentic runs an AI agent that uses tools to validate the destination, search the indexed destination files, and check the current season.';
         return;
       }
 
@@ -594,7 +608,7 @@
       // Show loading
       const adviseBox = document.getElementById('advise');
       updateModeBadge(framework);
-      adviseBox.innerHTML = `<div class="loading"><div class="loader"></div>Loading ${framework === 'llm' ? 'direct LLM' : 'RAG'} travel advice...</div>`;
+      adviseBox.innerHTML = `<div class="loading"><div class="loader"></div>Loading ${FRAMEWORK_LOADING_LABELS[framework] || 'RAG'} travel advice...</div>`;
       adviseBox.classList.add('loading');
       document.getElementById('feedbackButtons').style.display = 'none';
       clearError();

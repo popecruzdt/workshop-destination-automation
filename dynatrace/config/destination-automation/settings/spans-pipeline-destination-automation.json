@@ -5,34 +5,71 @@
   "processing": {
     "processors": [
       {
-        "id": "processor_Gen_AI_System_7039",
-        "type": "dql",
-        "matcher": "isNotNull(gen_ai.system)",
-        "description": "Gen AI System",
+        "description": "Drop OneAgent native GenAI spans that duplicate OpenTelemetry/OpenInference spans (e.g. ollama.chat)",
         "enabled": true,
+        "id": "dedup-drop-native-genai-spans",
+        "matcher": "isNull(span.tracing.system) and isNotNull(gen_ai.operation.name)",
+        "type": "drop"
+      },
+      {
+        "description": "OpenInference LLM spans: model, provider, token usage, request params, messages, finish reasons, legacy fields for bizevent metrics",
+        "dql": {
+          "script": "parse metadata, \"JSON:oi_metadata\"\n| parse output.value, \"JSON:oi_output\"\n| parse llm.invocation_parameters, \"LD 'guardrailIdentifier\\\": \\\"' ALNUM:gen_ai.guardrail.id\"\n| parse llm.invocation_parameters, \"LD 'guardrailVersion\\\": \\\"' ALNUM:gen_ai.guardrail.version\"\n| fieldsAdd gen_ai.operation.name = \"chat\",\n    gen_ai.request.model = coalesce(llm.model_name, gen_ai.request.model),\n    gen_ai.provider.name = coalesce(llm.provider, gen_ai.provider.name, llm.system),\n    gen_ai.usage.input_tokens = coalesce(llm.token_count.prompt, gen_ai.usage.input_tokens),\n    gen_ai.usage.output_tokens = coalesce(llm.token_count.completion, gen_ai.usage.output_tokens),\n    gen_ai.response.finish_reasons = coalesce(llm.finish_reason, gen_ai.response.finish_reasons),\n    gen_ai.prompt_caching = if(toDouble(`llm.token_count.prompt_details.cache_read`) > 0, \"read\",\n      else: if(toDouble(`llm.token_count.prompt_details.cache_write`) > 0, \"write\", else: gen_ai.prompt_caching)),\n    gen_ai.request.temperature = coalesce(llm.temperature, gen_ai.request.temperature, toDouble(oi_metadata[ls_temperature])),\n    gen_ai.request.max_tokens = coalesce(llm.max_tokens, gen_ai.request.max_tokens),\n    gen_ai.request.top_p = coalesce(llm.top_p, gen_ai.request.top_p),\n    gen_ai.system_instructions = if(`llm.input_messages.0.message.role` == \"system\", `llm.input_messages.0.message.content`),\n    gen_ai.prompt.prompt_filter_results = toString(oi_output[prompt_filter_results]),\n    gen_ai.input.messages = input.value,\n    gen_ai.output.messages = output.value,\n    llm.usage.total_tokens = toLong(llm.token_count.total),\n    llm.request.type = \"chat\"\n| fieldsAdd gen_ai.response.model = gen_ai.request.model,\n    gen_ai.system = if(gen_ai.provider.name == \"azure\", \"azure.ai.openai\", else: gen_ai.provider.name),\n    duration_seconds = if(isNotNull(gen_ai.usage.input_tokens) OR isNotNull(gen_ai.usage.output_tokens), toDouble(duration) / 1000000000.0)\n| fieldsRemove oi_metadata, oi_output, input.value, output.value,\n    llm.model_name, llm.provider, llm.system, llm.finish_reason, llm.temperature, llm.max_tokens, llm.top_p,\n    llm.invocation_parameters, llm.token_count.prompt, llm.token_count.completion, llm.token_count.total,\n    `llm.token_count.prompt_details.audio`, `llm.token_count.prompt_details.cache_read`,\n    `llm.token_count.prompt_details.cache_write`, `llm.token_count.completion_details.audio`,\n    `llm.token_count.completion_details.reasoning`,\n    `llm.input_messages.0.message.role`, `llm.input_messages.0.message.content`,\n    `llm.output_messages.0.message.role`, `llm.output_messages.0.message.content`\n"
+        },
+        "enabled": true,
+        "id": "openinference-llm-spans",
+        "matcher": "openinference.span.kind == \"LLM\"",
+        "type": "dql"
+      },
+      {
+        "description": "OpenInference TOOL spans: gen_ai.tool.name/description, gen_ai.tool.call.arguments/result, gen_ai.tool.type",
+        "dql": {
+          "script": "parse output.value, \"JSON:oi_tool_output\"\n| fieldsAdd gen_ai.tool.name = coalesce(tool.name, gen_ai.tool.name),\n    gen_ai.tool.description = coalesce(tool.description, gen_ai.tool.description),\n    gen_ai.tool.call.arguments = input.value,\n    gen_ai.tool.call.result = coalesce(toString(oi_tool_output[data][content]), output.value),\n    gen_ai.tool.type = \"function\"\n| fieldsRemove oi_tool_output, tool.name, tool.description, input.value, output.value\n"
+        },
+        "enabled": true,
+        "id": "openinference-tool-spans",
+        "matcher": "openinference.span.kind == \"TOOL\"",
+        "type": "dql"
+      },
+      {
+        "description": "OpenInference (all span kinds, after LLM/TOOL): gen_ai.operation.kind/name, gen_ai.agent.name, embedding/reranker/guardrail fields, source marker, cleanup of consumed llm.* fields",
+        "dql": {
+          "script": "parse metadata, \"JSON:oi_metadata\"\n| fieldsAdd gen_ai.operation.kind = if(openinference.span.kind == \"CHAIN\", \"workflow\",\n      else: if(openinference.span.kind == \"TOOL\", \"tool\",\n      else: if(openinference.span.kind == \"AGENT\", \"agent\",\n      else: if(openinference.span.kind == \"RETRIEVER\", \"retrieval\",\n      else: if(openinference.span.kind == \"GUARDRAIL\", \"guardrail\",\n      else: \"task\"))))),\n    gen_ai.operation.name = if(openinference.span.kind == \"AGENT\", \"invoke_agent\",\n      else: if(openinference.span.kind == \"TOOL\", \"execute_tool\",\n      else: if(isNotNull(embedding.model_name), \"embeddings\",\n      else: gen_ai.operation.name))),\n    gen_ai.agent.name = coalesce(agent.name, gen_ai.agent.name, oi_metadata[agent_name], if(openinference.span.kind == \"AGENT\", span.name)),\n    gen_ai.request.model = coalesce(embedding.model_name, reranker.model_name, gen_ai.request.model),\n    gen_ai.embeddings.dimension.count = coalesce(embedding.vector_length, gen_ai.embeddings.dimension.count),\n    gen_ai.guardrail.name = coalesce(validator_name, gen_ai.guardrail.name),\n    ai.observability.source = \"openinference\"\n| fieldsRemove oi_metadata, agent.name, embedding.model_name, embedding.vector_length, reranker.model_name,\n    validator_name, input.mime_type, output.mime_type,\n    llm.invocation_parameters, llm.token_count.total,\n    `llm.token_count.prompt_details.audio`, `llm.token_count.prompt_details.cache_read`,\n    `llm.token_count.prompt_details.cache_write`, `llm.token_count.completion_details.audio`,\n    `llm.token_count.completion_details.reasoning`,\n    `llm.input_messages.0.message.role`, `llm.input_messages.0.message.content`,\n    `llm.output_messages.0.message.role`, `llm.output_messages.0.message.content`\n"
+        },
+        "enabled": true,
+        "id": "openinference-all-spans",
+        "matcher": "isNotNull(openinference.span.kind)",
+        "type": "dql"
+      },
+      {
+        "description": "Normalize gen_ai.system to lower case",
         "dql": {
           "script": "fieldsAdd gen_ai.system = lower(gen_ai.system)"
-        }
+        },
+        "enabled": true,
+        "id": "genai-system-lowercase",
+        "matcher": "isNotNull(gen_ai.system)",
+        "type": "dql"
       },
       {
-        "id": "processor_Gen_AI_Temperature_7040",
-        "type": "dql",
-        "matcher": "isNotNull(traceloop.association.properties.ls_temperature)",
-        "description": "Gen AI Temperature",
-        "enabled": true,
+        "description": "Traceloop/OpenLLMetry spans: map ls_temperature to gen_ai.request.temperature",
         "dql": {
           "script": "fieldsAdd gen_ai.request.temperature = traceloop.association.properties.ls_temperature"
-        }
+        },
+        "enabled": true,
+        "id": "traceloop-temperature",
+        "matcher": "isNotNull(traceloop.association.properties.ls_temperature)",
+        "type": "dql"
       },
       {
-        "id": "processor_Ollama_Client_Request_9634",
-        "type": "dql",
-        "matcher": "matchesValue(span.name,\"ollama.client.request\")",
-        "description": "Ollama Client Request",
-        "enabled": true,
+        "description": "ollama.client.request spans: convert Ollama timing fields to durations",
         "dql": {
           "script": "fieldsAdd ollama.eval_duration = toDuration(ollama.eval_duration)\n| fieldsAdd ollama.load_duration = toDuration(ollama.load_duration)\n| fieldsAdd ollama.prompt_eval_duration = toDuration(ollama.prompt_eval_duration)\n| fieldsAdd ollama.total_duration = toDuration(ollama.total_duration)"
-        }
+        },
+        "enabled": true,
+        "id": "ollama-client-request-durations",
+        "matcher": "matchesValue(span.name,\"ollama.client.request\")",
+        "type": "dql"
       }
     ]
   },
@@ -57,14 +94,12 @@
   "metricExtraction": {
     "processors": [
       {
-        "id": "processor_Input_gen_ai.client.token.usage_6625",
-        "type": "samplingAwareValueMetric",
-        "matcher": "isNotNull(gen_ai.usage.input_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "description": "Input gen_ai.client.token.usage",
         "enabled": true,
+        "id": "processor_Input_gen_ai.client.token.usage_6625",
+        "matcher": "isNotNull(gen_ai.usage.input_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "samplingAwareValueMetric": {
-          "metricKey": "gen_ai.client.token.usage",
-          "field": "gen_ai.usage.input_tokens",
+          "aggregation": "disabled",
           "defaultValue": "0",
           "dimensions": [
             {
@@ -84,26 +119,26 @@
               "sourceFieldName": "dt.entity.host_group"
             },
             {
-              "extractionType": "field",
-              "sourceFieldName": "gen_ai.token.type",
+              "defaultValue": "input",
               "destinationFieldName": "gen_ai.token.type",
-              "defaultValue": "input"
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.token.type"
             }
           ],
-          "sampling": "disabled",
-          "aggregation": "disabled",
-          "measurement": "field"
-        }
+          "field": "gen_ai.usage.input_tokens",
+          "measurement": "field",
+          "metricKey": "gen_ai.client.token.usage",
+          "sampling": "disabled"
+        },
+        "type": "samplingAwareValueMetric"
       },
       {
-        "id": "processor_Output_gen_ai.client.token.usage_4433",
-        "type": "samplingAwareValueMetric",
-        "matcher": "isNotNull(gen_ai.usage.output_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "description": "Output gen_ai.client.token.usage",
         "enabled": true,
+        "id": "processor_Output_gen_ai.client.token.usage_4433",
+        "matcher": "isNotNull(gen_ai.usage.output_tokens) and matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "samplingAwareValueMetric": {
-          "metricKey": "gen_ai.client.token.usage",
-          "field": "gen_ai.usage.output_tokens",
+          "aggregation": "disabled",
           "defaultValue": "0",
           "dimensions": [
             {
@@ -123,25 +158,26 @@
               "sourceFieldName": "dt.entity.host_group"
             },
             {
-              "extractionType": "field",
-              "sourceFieldName": "gen_ai.token.type",
+              "defaultValue": "output",
               "destinationFieldName": "gen_ai.token.type",
-              "defaultValue": "output"
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.token.type"
             }
           ],
-          "sampling": "disabled",
-          "aggregation": "disabled",
-          "measurement": "field"
-        }
+          "field": "gen_ai.usage.output_tokens",
+          "measurement": "field",
+          "metricKey": "gen_ai.client.token.usage",
+          "sampling": "disabled"
+        },
+        "type": "samplingAwareValueMetric"
       },
       {
-        "id": "processor_gen_ai.client.operation.duration_6725",
-        "type": "samplingAwareValueMetric",
-        "matcher": "matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "description": "gen_ai.client.operation.duration",
         "enabled": true,
+        "id": "processor_gen_ai.client.operation.duration_6725",
+        "matcher": "matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
         "samplingAwareValueMetric": {
-          "metricKey": "gen_ai.client.operation.duration",
+          "aggregation": "enabled",
           "dimensions": [
             {
               "extractionType": "field",
@@ -164,10 +200,189 @@
               "sourceFieldName": "dt.entity.service"
             }
           ],
-          "sampling": "enabled",
+          "measurement": "duration",
+          "metricKey": "gen_ai.client.operation.duration",
+          "sampling": "enabled"
+        },
+        "type": "samplingAwareValueMetric"
+      },
+      {
+        "description": "Extract gen_ai.client.operation.duration from OpenInference spans",
+        "enabled": true,
+        "id": "openinference-operation-duration-metric",
+        "matcher": "isNotNull(openinference.span.kind) AND (isNotNull(duration_seconds))",
+        "samplingAwareHistogramMetric": {
           "aggregation": "enabled",
-          "measurement": "duration"
-        }
+          "dimensions": [
+            {
+              "extractionType": "field",
+              "sourceFieldName": "service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.provider.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ],
+          "field": "duration_seconds",
+          "measurement": "field",
+          "metricKey": "gen_ai.client.operation.duration",
+          "sampling": "enabled"
+        },
+        "type": "samplingAwareHistogramMetric"
+      },
+      {
+        "description": "Extract gen_ai.client.token.usage (input tokens)",
+        "enabled": true,
+        "id": "openinference-token-usage-input-metric",
+        "matcher": "isNotNull(openinference.span.kind) AND (isNotNull(`gen_ai.usage.input_tokens`))",
+        "samplingAwareValueMetric": {
+          "aggregation": "enabled",
+          "dimensions": [
+            {
+              "constantFieldName": "gen_ai.token.type",
+              "constantValue": "input",
+              "extractionType": "constant"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.provider.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ],
+          "field": "gen_ai.usage.input_tokens",
+          "measurement": "field",
+          "metricKey": "gen_ai.client.token.usage",
+          "sampling": "enabled"
+        },
+        "type": "samplingAwareValueMetric"
+      },
+      {
+        "description": "Extract gen_ai.client.token.usage (output tokens)",
+        "enabled": true,
+        "id": "openinference-token-usage-output-metric",
+        "matcher": "isNotNull(openinference.span.kind) AND (isNotNull(`gen_ai.usage.output_tokens`))",
+        "samplingAwareValueMetric": {
+          "aggregation": "enabled",
+          "dimensions": [
+            {
+              "constantFieldName": "gen_ai.token.type",
+              "constantValue": "output",
+              "extractionType": "constant"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "service.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.operation.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.provider.name"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.request.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "gen_ai.response.model"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.product"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.cost.costcenter"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.service"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.entity.host_group"
+            },
+            {
+              "extractionType": "field",
+              "sourceFieldName": "dt.host_group.id"
+            }
+          ],
+          "field": "gen_ai.usage.output_tokens",
+          "measurement": "field",
+          "metricKey": "gen_ai.client.token.usage",
+          "sampling": "enabled"
+        },
+        "type": "samplingAwareValueMetric"
       }
     ]
   },
@@ -177,44 +392,44 @@
   "dataExtraction": {
     "processors": [
       {
-        "id": "processor_Gen_AI_-_Ollama_9105",
-        "type": "bizevent",
-        "matcher": "matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)",
+        "bizevent": {
+          "eventProvider": {
+            "constant": "openllmetry.ollama",
+            "type": "constant"
+          },
+          "eventType": {
+            "constant": "gen_ai.llm",
+            "type": "constant"
+          },
+          "fieldExtraction": {
+            "type": "includeAll"
+          }
+        },
         "description": "Gen AI - Ollama",
         "enabled": true,
-        "bizevent": {
-          "eventType": {
-            "type": "constant",
-            "constant": "gen_ai.llm"
-          },
-          "eventProvider": {
-            "type": "constant",
-            "constant": "openllmetry.ollama"
-          },
-          "fieldExtraction": {
-            "type": "includeAll"
-          }
-        }
+        "id": "processor_Gen_AI_-_Ollama_9105",
+        "matcher": "(matchesValue(span.name,\"ChatOllama.chat\") and isNotNull(gen_ai.system)) or openinference.span.kind == \"LLM\"",
+        "type": "bizevent"
       },
       {
-        "id": "processor_Gen_AI_-_Weaviate_4800",
-        "type": "bizevent",
-        "matcher": "matchesValue(db.system,\"weaviate\") and isNotNull(weaviate.collection)",
-        "description": "Gen AI - Weaviate",
-        "enabled": true,
         "bizevent": {
-          "eventType": {
-            "type": "constant",
-            "constant": "gen_ai.vectordb"
-          },
           "eventProvider": {
-            "type": "constant",
-            "constant": "openllmetry.weaviate"
+            "constant": "openllmetry.weaviate",
+            "type": "constant"
+          },
+          "eventType": {
+            "constant": "gen_ai.vectordb",
+            "type": "constant"
           },
           "fieldExtraction": {
             "type": "includeAll"
           }
-        }
+        },
+        "description": "Gen AI - Weaviate",
+        "enabled": true,
+        "id": "processor_Gen_AI_-_Weaviate_4800",
+        "matcher": "matchesValue(db.system,\"weaviate\") and isNotNull(weaviate.collection)",
+        "type": "bizevent"
       }
     ]
   }

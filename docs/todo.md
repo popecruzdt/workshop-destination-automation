@@ -5,6 +5,7 @@
 
 ## OpenLLMetry & Observability
 - [ ] Add OpenFeature telemetry hooks
+- [ ] Add an Arize AX exporter (otlp/arize) to the OpenTelemetry Collector config for OpenInference traces
 
 ## Dynatrace
 - [ ] Fix logs with openpipeline

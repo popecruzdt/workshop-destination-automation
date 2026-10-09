@@ -168,7 +168,7 @@ configs:
     type:
       settings:
         schema: builtin:openpipeline.spans.pipelines
-        schemaVersion: "1.55"
+        schemaVersion: "1.77"
         scope: environment
   - id: spans-routing
     config:

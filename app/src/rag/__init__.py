@@ -5,8 +5,9 @@ Handles document loading, embedding, and retrieval-augmented generation
 
 import os
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -56,6 +57,14 @@ CRITICAL INSTRUCTIONS:
 Question: {destination}
 
 Travel Advice:"""
+
+
+@dataclass
+class RetrievalResult:
+    """Destination context retrieved from the Weaviate KB."""
+    contexts: List[str] = field(default_factory=list)
+    drift_active: bool = False
+    destination_found: bool = False
 
 
 class RAGPipeline:
@@ -373,21 +382,20 @@ class RAGPipeline:
         self.rag_chain = True
         logger.info("RAG chain initialized successfully")
 
-    def get_travel_advice(self, destination: str) -> str:
+    def retrieve_context(self, destination: str) -> RetrievalResult:
         """
-        Get travel advice for a destination using RAG
-        
+        Retrieve destination context from the Weaviate KB.
+        Shared by the RAG workflow and the agentic workflow's KB search tool.
+
         Args:
-            destination: The destination to get advice about
-            
+            destination: The destination to retrieve context for
+
         Returns:
-            str: Travel advice for the destination
+            RetrievalResult: Retrieved context chunks and retrieval flags
         """
         if self.rag_chain is None:
             raise RuntimeError("RAG chain not initialized. Call initialize_rag_chain() first.")
-        
-        logger.info("RAG mode is active")
-        logger.info(f"Getting travel advice for: {destination}")
+
         try:
             tracer = trace.get_tracer("ai-travel-advisor.weaviate")
             results = None
@@ -523,6 +531,36 @@ class RAGPipeline:
 
             if not contexts and not drift_active:
                 logger.warning(f"No KB documents retrieved for destination: {destination}")
+
+            return RetrievalResult(
+                contexts=contexts,
+                drift_active=drift_active,
+                destination_found=destination_found_in_collection,
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving destination context: {e}")
+            raise
+
+    def get_travel_advice(self, destination: str) -> str:
+        """
+        Get travel advice for a destination using RAG
+
+        Args:
+            destination: The destination to get advice about
+
+        Returns:
+            str: Travel advice for the destination
+        """
+        if self.rag_chain is None:
+            raise RuntimeError("RAG chain not initialized. Call initialize_rag_chain() first.")
+
+        logger.info("RAG mode is active")
+        logger.info(f"Getting travel advice for: {destination}")
+        try:
+            retrieval = self.retrieve_context(destination)
+            contexts = retrieval.contexts
+
+            if not contexts and not retrieval.drift_active:
                 logger.info("Response used RAG: false")
                 return "I don't have information about that destination"
 
