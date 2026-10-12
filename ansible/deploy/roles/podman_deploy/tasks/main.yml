@@ -166,13 +166,15 @@
     command: "ollama pull {{ travel_advisor_env.AI_EMBEDDING_MODEL }}"
   register: ollama_embedding_pull
 
-- name: "podman_deploy | Render otel-collector config from template (Dynatrace export enabled)"
+- name: "podman_deploy | Render otel-collector config from template (Dynatrace or Arize AX export enabled)"
   ansible.builtin.template:
     src: otel-collector-config.yaml.j2
     dest: "{{ app_config_path }}/opentelemetry/otel-collector-config.yaml"
     mode: "0644"
   no_log: true
-  when: (otel_collector_dynatrace_export | bool) and not (otel_collector_custom_config | bool)
+  when: >-
+    (otel_collector_dynatrace_export | bool or otel_collector_arize_export | bool)
+    and not (otel_collector_custom_config | bool)
 
 - name: "podman_deploy | Set otel-collector config filename"
   ansible.builtin.set_fact:

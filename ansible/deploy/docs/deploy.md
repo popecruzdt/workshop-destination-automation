@@ -113,6 +113,29 @@ The `deploy/` function covers application build and release, Dynatrace-related d
 - Used by `deploy_app.yml`.
 - Creates the Podman network and orchestrates Weaviate, Ollama, OpenTelemetry Collector, travel-advisor, and Nginx.
 - Handles AI runtime environment assembly, health checks, and startup sequencing.
+- Renders the OpenTelemetry Collector config from `templates/otel-collector-config.yaml.j2` when Dynatrace or Arize AX export is enabled (otherwise the static `app/opentelemetry/otel-collector-config.yaml`, debug exporter only, is used).
+
+#### Telemetry export modes
+
+The app always sends its OpenTelemetry traces and metrics to the Collector. What reaches Dynatrace depends on whether OneAgent is deployed:
+
+| Mode | OneAgent | `otel_collector_dynatrace_export_traces` | Spans reach Dynatrace via | OpenPipeline spans route |
+|---|---|---|---|---|
+| OneAgent (default) | deployed | `false` | OneAgent (captures the app's OpenTelemetry spans) | `dt.host_group.id == "destination-automation"` → `destination-automation-spans` |
+| OpenTelemetry only | **not** deployed | `true` | Collector OTLP export | `service.namespace == "destination-automation"` → `destination-automation-otlp-spans` |
+
+Only set `otel_collector_dynatrace_export_traces: true` when OneAgent is not deployed; otherwise every span arrives twice. Both spans pipelines apply the same OpenInference to `gen_ai.*` normalization, metrics, and bizevents.
+
+Collector variables (role defaults in `deploy/roles/podman_deploy/defaults/main.yml`; deploy-app job template extra vars in `deploy/roles/aap_config/defaults/main.yml`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `otel_collector_dynatrace_export` | `false` (job template: `true`) | Enable the `otlphttp/dynatrace` exporter (`DT_OTLP_ENDPOINT`, `DT_OTLP_TOKEN` from the Dynatrace OTLP credential, `Api-Token` header) |
+| `otel_collector_dynatrace_export_traces` / `_metrics` / `_logs` | `true` (job template: `false` / `true` / `false`) | Per-signal Dynatrace export switches |
+| `otel_collector_service_namespace` | `destination-automation` | `service.namespace` resource attribute added to all OTLP telemetry; used by the OTLP spans and bizevents routes |
+| `otel_collector_arize_export` | `false` | Enable the `otlp/arize` traces exporter, independent of the Dynatrace export (works with or without OneAgent) |
+| `otel_collector_arize_endpoint` | `otlp.arize.com:443` | Arize AX OTLP gRPC endpoint |
+| `otel_collector_arize_space_id` / `otel_collector_arize_api_key` | `ARIZE_SPACE_ID` / `ARIZE_API_KEY` env | Injected by the Arize AX credential; the Arize project comes from the app's `openinference.project.name` resource attribute |
 
 ### `deploy/roles/dynatrace_oneagent_deploy`
 
@@ -152,8 +175,8 @@ The `deploy/` function covers application build and release, Dynatrace-related d
 - This is the controller bootstrap role for the workshop.
 - Major responsibilities:
   - validate controller and deployment settings
-  - create custom credential types for Dynatrace integrations (Monaco Platform Token, OTLP Token, OAuth Client, OneAgent PaaS Token)
-  - create placeholder credentials for each Dynatrace credential type
+  - create custom credential types for Dynatrace integrations (Monaco Platform Token, OTLP Token, OAuth Client, OneAgent PaaS Token) and for the optional Arize AX export (Arize AX: space ID and API key)
+  - create placeholder credentials for each custom credential type
   - copy project content into AAP-local paths for local mode
   - create controller logins, including instructor, participant users, and the EDA service account
   - generate platform API tokens for all users via Gateway API:

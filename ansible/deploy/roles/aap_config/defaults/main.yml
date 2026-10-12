@@ -183,6 +183,35 @@ aap_dynatrace_otlp_credential_overwrite: false
 aap_dynatrace_otlp_endpoint: "{{ lookup('ansible.builtin.env', 'DT_OTLP_ENDPOINT') | default('https://example.live.dynatrace.com/api/v2/otlp', true) }}"
 aap_dynatrace_otlp_token: "{{ lookup('ansible.builtin.env', 'DT_OTLP_TOKEN') | default('REPLACE_ME', true) }}"
 
+# Arize AX custom credential type and credential (optional otel-collector traces export to Arize AX)
+aap_arize_credential_type_name: "Arize AX"
+aap_arize_credential_type_description: "Injects Arize AX space ID and API key as environment variables for otel-collector configuration"
+aap_arize_credential_type_kind: "cloud"
+aap_arize_credential_type_inputs:
+  fields:
+    - id: arize_space_id
+      type: string
+      label: Arize AX Space ID
+      help_text: Arize AX space ID (Space Settings in Arize AX)
+    - id: arize_api_key
+      type: string
+      label: Arize AX API Key
+      secret: true
+      help_text: Arize AX API key used by the otel-collector otlp/arize exporter
+  required:
+    - arize_space_id
+    - arize_api_key
+aap_arize_credential_type_injectors:
+  env:
+    ARIZE_SPACE_ID: !unsafe "{{ arize_space_id }}"
+    ARIZE_API_KEY: !unsafe "{{ arize_api_key }}"
+
+aap_arize_credential_name: "destination-automation-arize-ax"
+aap_arize_credential_description: "Arize AX credential for destination-automation otel-collector traces export"
+aap_arize_credential_overwrite: false
+aap_arize_space_id: "{{ lookup('ansible.builtin.env', 'ARIZE_SPACE_ID') | default('REPLACE_ME', true) }}"
+aap_arize_api_key: "{{ lookup('ansible.builtin.env', 'ARIZE_API_KEY') | default('REPLACE_ME', true) }}"
+
 # Dynatrace OAuth Client custom credential type and credential
 aap_dynatrace_oauth_credential_type_name: "Dynatrace OAuth Client"
 aap_dynatrace_oauth_credential_type_description: "Injects Dynatrace OAuth client credentials as environment variables"
@@ -333,6 +362,7 @@ aap_deploy_app_job_template_credential: "{{ aap_machine_credential_name }}"
 aap_deploy_app_job_template_credentials:
   - "{{ aap_machine_credential_name }}"
   - "{{ aap_dynatrace_otlp_credential_name }}"
+  - "{{ aap_arize_credential_name }}"
 aap_deploy_app_job_template_become_enabled: false
 aap_deploy_app_job_template_extra_vars:
   target_hosts: "{{ aap_job_template_target_hosts }}"
@@ -340,9 +370,14 @@ aap_deploy_app_job_template_extra_vars:
   # Credentials (DT_OTLP_ENDPOINT, DT_OTLP_TOKEN) are injected by the Dynatrace OTLP credential
   otel_collector_dynatrace_export: true
   # Signal switches: control which signals are exported to Dynatrace (default all true in role)
+  # Set traces to true only when OneAgent is NOT deployed (pure OpenTelemetry mode); with OneAgent,
+  # the agent captures the app's OpenTelemetry spans and Collector export would duplicate them.
   otel_collector_dynatrace_export_traces: false
   otel_collector_dynatrace_export_metrics: true
   otel_collector_dynatrace_export_logs: false
+  # Arize AX traces export (independent of the Dynatrace export; works with or without OneAgent)
+  # Credentials (ARIZE_SPACE_ID, ARIZE_API_KEY) are injected by the Arize AX credential
+  otel_collector_arize_export: false
 
 # Job templates for cleanup
 aap_clean_remove_app_job_template_name: "destination-automation-clean-remove-app"

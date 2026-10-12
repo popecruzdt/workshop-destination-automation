@@ -4,7 +4,7 @@
       "enabled": true,
       "pipelineType": "custom",
       "pipelineId": "{{.builtinopenpipelinebizeventspipelines__af0100f8e8f63783953eb65eaa61ac43__id}}",
-      "matcher": "matchesValue(dt.host_group.id,\"{{.host_group_id}}\")",
+      "matcher": "matchesValue(dt.host_group.id,\"{{.host_group_id}}\") or matchesValue(service.namespace,\"{{.service_namespace}}\")",
       "description": "destination-automation-bizevents"
     }
   ]

@@ -69,6 +69,18 @@ Provide in Ansible credential fields:
 
 Minimum token scopes must match the signals you export (metrics, traces, logs) in your Dynatrace tenant.
 
+Export traces through the Collector only when OneAgent is not deployed (pure OpenTelemetry mode). With OneAgent, the agent already captures the application's OpenTelemetry spans.
+
+**Arize AX credentials (optional)**
+
+Used by the OpenTelemetry Collector to also send the application's OpenInference traces to Arize AX. Export is off by default (`otel_collector_arize_export: false`) and works with or without OneAgent.
+
+Provide in the Ansible credential fields (credential type **Arize AX**, credential `destination-automation-arize-ax`):
+- `ARIZE_SPACE_ID`
+- `ARIZE_API_KEY`
+
+Traces appear in the Arize AX project `ai-travel-advisor`.
+
 **Dynatrace OAuth client credentials (EdgeConnect)**
 
 Primarily used to deploy the EdgeConnect container on the Ansible Automation Platform host.  This credential needs permissions to read, write, and manage EdgeConnects and their OAuth clients.

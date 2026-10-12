@@ -156,6 +156,9 @@ configs:
           configType: builtin:openpipeline.bizevents.pipelines
           property: id
           type: reference
+        service_namespace:
+          type: value
+          value: destination-automation
     type:
       settings:
         schema: builtin:openpipeline.bizevents.routing
@@ -164,6 +167,15 @@ configs:
   - id: spans-pipeline-destination-automation
     config:
       template: spans-pipeline-destination-automation.json
+      skip: false
+    type:
+      settings:
+        schema: builtin:openpipeline.spans.pipelines
+        schemaVersion: "1.77"
+        scope: environment
+  - id: spans-pipeline-destination-automation-otlp
+    config:
+      template: spans-pipeline-destination-automation-otlp.json
       skip: false
     type:
       settings:
@@ -180,6 +192,14 @@ configs:
           value: destination-automation
         builtinopenpipelinespanspipelines__8edca163d5a13eb7ac9380759a3719b9__id:
           configId: spans-pipeline-destination-automation
+          configType: builtin:openpipeline.spans.pipelines
+          property: id
+          type: reference
+        service_namespace:
+          type: value
+          value: destination-automation
+        otlp_spans_pipeline_id:
+          configId: spans-pipeline-destination-automation-otlp
           configType: builtin:openpipeline.spans.pipelines
           property: id
           type: reference

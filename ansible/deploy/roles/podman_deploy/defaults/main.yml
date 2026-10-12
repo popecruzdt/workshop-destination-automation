@@ -61,3 +61,15 @@ otel_collector_dynatrace_export_metrics: true
 otel_collector_dynatrace_export_logs: true
 otel_collector_dynatrace_endpoint: "{{ lookup('ansible.builtin.env', 'DT_OTLP_ENDPOINT') | default('https://example.live.dynatrace.com', true) }}"
 otel_collector_dynatrace_token: "{{ lookup('ansible.builtin.env', 'DT_OTLP_TOKEN') | default('REPLACE_ME', true) }}"
+
+# OpenTelemetry Collector: service.namespace resource attribute added to all OTLP telemetry.
+# Dynatrace OpenPipeline routes OTLP spans and bizevents for this workshop on this value.
+otel_collector_service_namespace: "destination-automation"
+
+# OpenTelemetry Collector: export traces to Arize AX (independent of the Dynatrace export).
+# Space ID and API key are injected by the AAP "Arize AX" credential (ARIZE_SPACE_ID, ARIZE_API_KEY).
+# The Arize project comes from the app's openinference.project.name resource attribute.
+otel_collector_arize_export: false
+otel_collector_arize_endpoint: "otlp.arize.com:443"
+otel_collector_arize_space_id: "{{ lookup('ansible.builtin.env', 'ARIZE_SPACE_ID') | default('REPLACE_ME', true) }}"
+otel_collector_arize_api_key: "{{ lookup('ansible.builtin.env', 'ARIZE_API_KEY') | default('REPLACE_ME', true) }}"

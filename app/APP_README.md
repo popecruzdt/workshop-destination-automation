@@ -186,7 +186,8 @@ Instrumentation sources when `OPENLLMETRY_ENABLED=true`:
 - LangChain and LangGraph spans (LLM calls, the `travel_agent` graph, its nodes and tools) come from OpenInference (`openinference-instrumentation-langchain`). Traceloop's LangChain instrumentor is blocked to avoid duplicate spans.
 - Traceloop (OpenLLMetry) still sets up the tracer provider and exporter, the `@workflow` spans (`llm_advice_workflow`, `rag_advice_workflow`, `agentic_advice_workflow`), and its other instrumentors.
 - OpenInference spans are exported as emitted (OpenInference semantic conventions, Arize AX as the primary consumer). The resource attribute `openinference.project.name=ai-travel-advisor` sets the Arize AX project. The app does not add Dynatrace-specific attributes to these spans.
-- For Dynatrace AI Observability, a Dynatrace OpenPipeline spans pipeline (`openinference-ai-spans`, routed with `isNotNull(openinference.span.kind)`) maps OpenInference attributes to `gen_ai.*`, following [Dynatrace's OpenInference guidance](https://docs.dynatrace.com/docs/shortlink/ai-ml-openinference).
+- For Dynatrace AI Observability, Dynatrace OpenPipeline maps OpenInference attributes to `gen_ai.*` at ingest, following [Dynatrace's OpenInference guidance](https://docs.dynatrace.com/docs/shortlink/ai-ml-openinference). Spans captured by OneAgent are routed by host group to `destination-automation-spans`; spans exported by the OpenTelemetry Collector (OpenTelemetry-only mode, no OneAgent) carry `service.namespace=destination-automation` and are routed to `destination-automation-otlp-spans`. Both pipelines are in the Monaco project under `dynatrace/config`.
+- The OpenTelemetry Collector can also export traces to Arize AX (`otel_collector_arize_export`); see `ansible/deploy/docs/deploy.md`.
 
 Note on legacy config values:
 

@@ -6,6 +6,13 @@
       "pipelineId": "{{.builtinopenpipelinespanspipelines__8edca163d5a13eb7ac9380759a3719b9__id}}",
       "matcher": "matchesValue(dt.host_group.id,\"{{.host_group_id}}\")",
       "description": "destination-automation"
+    },
+    {
+      "enabled": true,
+      "pipelineType": "custom",
+      "pipelineId": "{{.otlp_spans_pipeline_id}}",
+      "matcher": "matchesValue(service.namespace,\"{{.service_namespace}}\")",
+      "description": "destination-automation-otlp-spans"
     }
   ]
 }

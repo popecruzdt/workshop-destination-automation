@@ -179,6 +179,67 @@
       }}
     state: present
 
+- name: "aap_config | Create Arize AX custom credential type"
+  awx.awx.credential_type:
+    controller_host: "{{ aap_controller_host_normalized }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_arize_credential_type_name }}"
+    description: "{{ aap_arize_credential_type_description }}"
+    kind: "{{ aap_arize_credential_type_kind }}"
+    inputs: "{{ aap_arize_credential_type_inputs }}"
+    injectors: "{{ aap_arize_credential_type_injectors }}"
+    state: present
+  ignore_errors: true
+
+- name: "aap_config | Query existing Arize AX credential"
+  ansible.builtin.uri:
+    url: "{{ aap_controller_host_normalized }}{{ aap_controller_api_prefix }}v2/credentials/?name={{ aap_arize_credential_name | urlencode }}&organization__name={{ aap_org_name | urlencode }}"
+    method: GET
+    user: "{{ aap_controller_username }}"
+    password: "{{ aap_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    return_content: true
+    status_code: 200
+  register: aap_arize_credential_query
+  changed_when: false
+
+- name: "aap_config | Record Arize AX credential presence"
+  ansible.builtin.set_fact:
+    aap_arize_credential_exists: "{{ (aap_arize_credential_query.json.count | default(0)) | int > 0 }}"
+
+- name: "aap_config | Create Arize AX credential object"
+  awx.awx.credential:
+    controller_host: "{{ aap_controller_host_normalized }}"
+    controller_username: "{{ aap_controller_username }}"
+    controller_password: "{{ aap_controller_password }}"
+    validate_certs: "{{ aap_controller_validate_certs }}"
+    name: "{{ aap_arize_credential_name }}"
+    description: "{{ aap_arize_credential_description }}"
+    organization: "{{ aap_org_name }}"
+    credential_type: "{{ aap_arize_credential_type_name }}"
+    update_secrets: "{{ aap_arize_credential_overwrite }}"
+    # Only seed placeholder values on first creation; preserve any user-edited credential in AAP.
+    inputs: >-
+      {{
+        {
+          'arize_space_id': aap_arize_space_id,
+          'arize_api_key': aap_arize_api_key
+        }
+        if aap_arize_credential_overwrite
+        else (
+          {
+            'arize_space_id': aap_arize_space_id,
+            'arize_api_key': aap_arize_api_key
+          }
+          if not aap_arize_credential_exists
+          else omit
+        )
+      }}
+    state: present
+
 - name: "aap_config | Create Dynatrace OAuth Client custom credential type"
   awx.awx.credential_type:
     controller_host: "{{ aap_controller_host_normalized }}"

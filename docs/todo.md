@@ -5,7 +5,8 @@
 
 ## OpenLLMetry & Observability
 - [ ] Add OpenFeature telemetry hooks
-- [ ] Add an Arize AX exporter (otlp/arize) to the OpenTelemetry Collector config for OpenInference traces
+- [x] Add an Arize AX exporter (otlp/arize) to the OpenTelemetry Collector config for OpenInference traces
+- [ ] Known issue: the app exports its own gen_ai.client.operation.duration and gen_ai.client.token.usage metrics through the Collector, and OpenPipeline extracts the same metric keys from spans; AI Observability can double count them
 
 ## Dynatrace
 - [ ] Fix logs with openpipeline
