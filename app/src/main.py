@@ -229,6 +229,47 @@ class _GenAIModelSpanProcessor(SpanProcessor):
         return True
 
 
+class _OpenInferenceKindSpanProcessor(SpanProcessor):
+    """Tag Traceloop-created spans with `openinference.span.kind`.
+
+    Arize AX classifies spans by `openinference.span.kind`; Traceloop's @workflow/@task
+    spans and Weaviate spans only carry `traceloop.span.kind`, so they show as "unknown".
+    The kind is set in on_start (while the span is open) so it is exported as emitted.
+    Spans that already have a kind (OpenInference instrumentation) are left alone.
+    """
+
+    _RETRIEVER_MARKERS = (".collections.query.", ".gql.query.get", ".gql.get")
+
+    def on_start(self, span, parent_context=None):
+        try:
+            if span is None or _is_openinference_span(span):
+                return
+            kind = self._kind_for(getattr(span, "name", "") or "")
+            if kind and not _get_span_attribute(span, "openinference.span.kind"):
+                span.set_attribute("openinference.span.kind", kind)
+        except Exception:
+            # Tracing must never affect request handling.
+            pass
+
+    def _kind_for(self, span_name: str) -> Optional[str]:
+        if span_name.endswith((".workflow", ".task")):
+            return "CHAIN"
+        if span_name.startswith(("db.weaviate.", "weaviate.")):
+            if any(marker in span_name for marker in self._RETRIEVER_MARKERS):
+                return "RETRIEVER"
+            return "CHAIN"
+        return None
+
+    def on_end(self, span):
+        return
+
+    def shutdown(self):
+        return
+
+    def force_flush(self, timeout_millis=30000):
+        return True
+
+
 def _is_openinference_span(span) -> bool:
     """True for spans from OpenInference instrumentation.
 
@@ -339,41 +380,15 @@ def setup_openinference_instrumentation():
 
 
 def setup_weaviate_instrumentation():
-    """Instrument Weaviate client traffic with OpenTelemetry."""
+    """Instrument Weaviate client gRPC traffic with OpenTelemetry.
+
+    HTTPX is deliberately not instrumented: Weaviate queries use gRPC, and the HTTPX spans only
+    duplicated the Ollama chat calls already covered by the OpenInference and ollama.client.request spans.
+    """
     global _weaviate_instrumented
 
     if _weaviate_instrumented:
         return
-
-    # Weaviate v4 uses HTTPX for REST operations; instrumenting HTTPX captures those spans.
-    try:
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-
-        ai_model = get_settings().ai_model
-
-        def _httpx_request_hook(span, request):
-            if span is None or not span.is_recording() or request is None:
-                return
-            request_url = str(getattr(request, "url", ""))
-            if "ollama" in request_url and ("/api/chat" in request_url or "/api/generate" in request_url):
-                span.set_attribute("gen_ai.system", "ollama")
-                span.set_attribute("gen_ai.request.model", ai_model)
-
-        def _httpx_response_hook(span, request, response):
-            if span is None or not span.is_recording() or request is None:
-                return
-            request_url = str(getattr(request, "url", ""))
-            if "ollama" in request_url and ("/api/chat" in request_url or "/api/generate" in request_url):
-                span.set_attribute("gen_ai.system", "ollama")
-                span.set_attribute("gen_ai.response.model", ai_model)
-
-        HTTPXClientInstrumentor().instrument(
-            request_hook=_httpx_request_hook,
-            response_hook=_httpx_response_hook,
-        )
-        logger.info("Enabled HTTPX instrumentation for Weaviate operations")
-    except Exception as e:
-        logger.warning(f"Could not enable HTTPX instrumentation for Weaviate: {e}")
 
     # Some Weaviate operations can use gRPC. Enable client instrumentation if installed.
     try:
@@ -473,12 +488,13 @@ def initialize_opentelemetry():
                 exporter=trace_exporter,
             )
             model_attr_processor = _GenAIModelSpanProcessor(ai_model)
+            oi_kind_processor = _OpenInferenceKindSpanProcessor()
             # LangChain/LangGraph spans come from OpenInference (below), so Traceloop's
             # LangChain instrumentor is blocked to avoid a duplicate span tree.
             # openinference.project.name groups traces into a project in Arize AX.
             Traceloop.init(
                 app_name="ai-travel-advisor",
-                processor=[default_processor, model_attr_processor],
+                processor=[default_processor, model_attr_processor, oi_kind_processor],
                 block_instruments={Instruments.LANGCHAIN},
                 resource_attributes={"openinference.project.name": "ai-travel-advisor"},
                 span_postprocess_callback=lambda span: _normalize_genai_model_attributes(

@@ -22,6 +22,7 @@ from weaviate.config import AdditionalConfig, Timeout
 
 from src.config import get_settings
 from src.feature_flags import get_embedding_override, set_embedding_override
+from src.telemetry.langchain_context import langchain_span_context
 
 logger = logging.getLogger(__name__)
 
@@ -393,6 +394,11 @@ class RAGPipeline:
         Returns:
             RetrievalResult: Retrieved context chunks and retrieval flags
         """
+        # Inside the agent's KB search tool, nest the weaviate.* spans under the tool span.
+        with langchain_span_context():
+            return self._retrieve_context(destination)
+
+    def _retrieve_context(self, destination: str) -> RetrievalResult:
         if self.rag_chain is None:
             raise RuntimeError("RAG chain not initialized. Call initialize_rag_chain() first.")
 

@@ -40,7 +40,6 @@ opentelemetry-instrumentation==0.62b0
 opentelemetry-instrumentation-fastapi==0.62b0
 opentelemetry-instrumentation-requests==0.62b0
 opentelemetry-instrumentation-sqlalchemy==0.62b0
-opentelemetry-instrumentation-httpx==0.62b0
 opentelemetry-instrumentation-grpc==0.62b0
 python-json-logger==2.0.7
 traceloop-sdk==0.53.3

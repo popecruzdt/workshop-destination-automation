@@ -15,6 +15,8 @@ from urllib.parse import urljoin
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
+from .langchain_context import langchain_span_context
+
 logger = logging.getLogger("ai-travel-advisor")
 _tracer = trace.get_tracer("ai-travel-advisor.ollama")
 _instrumented = False
@@ -89,7 +91,7 @@ def _build_enhanced_sync_stream_wrapper(original: Any):
     """Sync wrapper for Ollama _stream that captures the full response including timing."""
     @functools.wraps(original)
     def wrapped(self, method: str, url: str, *args, **kwargs):
-        with _tracer.start_as_current_span(
+        with langchain_span_context(), _tracer.start_as_current_span(
             "ollama.client.request", 
             kind=SpanKind.INTERNAL
         ) as span:
@@ -137,7 +139,7 @@ def _build_enhanced_async_stream_wrapper(original: Any):
     """Async wrapper for Ollama _stream that captures the full response including timing."""
     @functools.wraps(original)
     async def wrapped(self, method: str, url: str, *args, **kwargs):
-        with _tracer.start_as_current_span(
+        with langchain_span_context(), _tracer.start_as_current_span(
             "ollama.client.request",
             kind=SpanKind.INTERNAL
         ) as span:
