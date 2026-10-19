@@ -216,6 +216,8 @@ These endpoints change or refresh behavior at runtime:
 
 The embedding override is implemented with an in-process OpenFeature provider in `src/feature_flags.py`. It is not persisted across restarts.
 
+Flag changes are observable. `src/telemetry/feature_flag_events.py` registers an OpenFeature `PROVIDER_CONFIGURATION_CHANGED` handler (only when `OPENLLMETRY_ENABLED=true`). When the flag value actually changes, it emits one OpenTelemetry log record over OTLP (event name `feature_flag.change`) with `feature_flag.key`, `feature_flag.provider.name`, `feature_flag.result.value` (empty string when the flag is at its default), `feature_flag.previous_value`, `feature_flag.result.variant` (the embedding model actually in use: the override, or the configured `AI_EMBEDDING_MODEL` at the default) and `feature_flag.result.enabled` (`true` while an override is active, `false` at the default). Setting the flag to its current value emits nothing. The record carries `service.name=ai-travel-advisor`; when OneAgent is detected, its entity IDs (process group instance, host, host group) are added to the log resource as well. The OpenTelemetry Collector exports it to Dynatrace (`otel_collector_dynatrace_export_logs`), where the destination-automation logs pipeline extracts a Davis event (`CUSTOM_CONFIGURATION`) from the record. The flag state is per app process, so the event is emitted by the worker that handled the change request.
+
 ## Local Run Modes
 
 ### Manual Python run

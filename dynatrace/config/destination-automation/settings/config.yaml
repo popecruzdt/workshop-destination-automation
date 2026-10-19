@@ -225,6 +225,9 @@ configs:
         host_group_id:
           type: value
           value: destination-automation
+        service_namespace:
+          type: value
+          value: destination-automation
         builtinopenpipelinelogspipelines__c1f43859d9a84c71b8e2aee6c2fb6f14__id:
           configId: logs-pipeline-destination-automation
           configType: builtin:openpipeline.logs.pipelines

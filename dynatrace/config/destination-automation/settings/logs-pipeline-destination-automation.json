@@ -38,7 +38,47 @@
     "processors": []
   },
   "davis": {
-    "processors": []
+    "processors": [
+      {
+        "id": "feature-flag-change-event",
+        "enabled": true,
+        "description": "Davis event for OpenFeature flag changes emitted by the app as OTel log records (feature_flag.change). Linked to the process via dt.source_entity when OneAgent metadata is on the record; always carries service.name.",
+        "type": "davis",
+        "matcher": "isNotNull(feature_flag.key) and matchesValue(otel.scope.name, \"ai-travel-advisor.feature-flags\")",
+        "davis": {
+          "properties": [
+            {
+              "key": "event.type",
+              "value": "CUSTOM_CONFIGURATION"
+            },
+            {
+              "key": "event.name",
+              "value": "{content}"
+            },
+            {
+              "key": "event.description",
+              "value": "{content}"
+            },
+            {
+              "key": "service.name",
+              "value": "{service.name}"
+            },
+            {
+              "key": "feature_flag.key",
+              "value": "{feature_flag.key}"
+            },
+            {
+              "key": "feature_flag.previous_value",
+              "value": "{feature_flag.previous_value}"
+            },
+            {
+              "key": "feature_flag.result.value",
+              "value": "{feature_flag.result.value}"
+            }
+          ]
+        }
+      }
+    ]
   },
   "dataExtraction": {
     "processors": []

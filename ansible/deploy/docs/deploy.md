@@ -117,7 +117,7 @@ The `deploy/` function covers application build and release, Dynatrace-related d
 
 #### Telemetry export modes
 
-The app always sends its OpenTelemetry traces and metrics to the Collector. What reaches Dynatrace depends on whether OneAgent is deployed:
+The app always sends its OpenTelemetry traces and metrics to the Collector, plus one log record each time the embedding-model-override feature flag changes. What reaches Dynatrace depends on whether OneAgent is deployed:
 
 | Mode | OneAgent | `otel_collector_dynatrace_export_traces` | Spans reach Dynatrace via | OpenPipeline spans route |
 |---|---|---|---|---|
@@ -126,12 +126,14 @@ The app always sends its OpenTelemetry traces and metrics to the Collector. What
 
 Only set `otel_collector_dynatrace_export_traces: true` when OneAgent is not deployed; otherwise every span arrives twice. Both spans pipelines apply the same OpenInference to `gen_ai.*` normalization, metrics, and bizevents.
 
+Feature flag change logs are exported independently of OneAgent when `otel_collector_dynatrace_export_logs` is `true` (the deploy-app job template default; the app emits no other OTel logs). They are routed by `dt.host_group.id` (OneAgent adds it to the log resource) or by `service.namespace == "destination-automation"` to the `destination-automation-logs` pipeline, which extracts a `CUSTOM_CONFIGURATION` Davis event per change. With OneAgent the event is linked to the process group instance; without it the event carries only `service.name`. The Dynatrace OTLP token needs the `logs.ingest` scope.
+
 Collector variables (role defaults in `deploy/roles/podman_deploy/defaults/main.yml`; deploy-app job template extra vars in `deploy/roles/aap_config/defaults/main.yml`):
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `otel_collector_dynatrace_export` | `false` (job template: `true`) | Enable the `otlphttp/dynatrace` exporter (`DT_OTLP_ENDPOINT`, `DT_OTLP_TOKEN` from the Dynatrace OTLP credential, `Api-Token` header) |
-| `otel_collector_dynatrace_export_traces` / `_metrics` / `_logs` | `true` (job template: `false` / `true` / `false`) | Per-signal Dynatrace export switches |
+| `otel_collector_dynatrace_export_traces` / `_metrics` / `_logs` | `true` (job template: `false` / `true` / `true`) | Per-signal Dynatrace export switches |
 | `otel_collector_service_namespace` | `destination-automation` | `service.namespace` resource attribute added to all OTLP telemetry; used by the OTLP spans and bizevents routes |
 | `otel_collector_arize_export` | `false` | Enable the `otlp/arize` traces exporter, independent of the Dynatrace export (works with or without OneAgent) |
 | `otel_collector_arize_endpoint` | `otlp.arize.com:443` | Arize AX OTLP gRPC endpoint |

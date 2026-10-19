@@ -67,7 +67,7 @@ Provide in Ansible credential fields:
 - `DT_OTLP_ENDPOINT`
 - `DT_OTLP_TOKEN`
 
-Minimum token scopes must match the signals you export (metrics, traces, logs) in your Dynatrace tenant.
+Minimum token scopes must match the signals you export (metrics, traces, logs) in your Dynatrace tenant. The deploy-app job template exports metrics and logs by default (traces only when OneAgent is not deployed), so the token needs at least `metrics.ingest` and `logs.ingest`. Logs carry the feature flag change events.
 
 Export traces through the Collector only when OneAgent is not deployed (pure OpenTelemetry mode). With OneAgent, the agent already captures the application's OpenTelemetry spans.
 

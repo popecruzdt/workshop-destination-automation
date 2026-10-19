@@ -25,6 +25,7 @@ from src.config import get_settings
 from src.utils import setup_logging, format_rag_response, format_error_response
 from src.rag import get_rag_pipeline
 from src.telemetry import instrument_ollama_middle_span
+from src.telemetry.feature_flag_events import setup_feature_flag_events
 from src.agent import (
     build_agent_graph,
     build_tools,
@@ -510,6 +511,7 @@ def initialize_opentelemetry():
             )
 
         setup_openinference_instrumentation()
+        setup_feature_flag_events(otlp_endpoint, insecure)
         setup_weaviate_instrumentation()
         instrument_ollama_middle_span()
         _initialize_otlp_metrics(otlp_endpoint)

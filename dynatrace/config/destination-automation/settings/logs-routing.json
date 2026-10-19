@@ -6,6 +6,13 @@
       "pipelineId": "{{.builtinopenpipelinelogspipelines__c1f43859d9a84c71b8e2aee6c2fb6f14__id}}",
       "matcher": "matchesValue(dt.host_group.id,\"{{.host_group_id}}\")",
       "description": "destination-automation"
+    },
+    {
+      "enabled": true,
+      "pipelineType": "custom",
+      "pipelineId": "{{.builtinopenpipelinelogspipelines__c1f43859d9a84c71b8e2aee6c2fb6f14__id}}",
+      "matcher": "matchesValue(service.namespace,\"{{.service_namespace}}\")",
+      "description": "destination-automation-otlp-logs"
     }
   ]
 }

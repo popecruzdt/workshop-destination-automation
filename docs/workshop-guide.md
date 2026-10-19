@@ -192,6 +192,11 @@ BizEvents:
 - Matching Condition: matchesValue(dt.host_group.id,"destination-automation")
 - Pipeline: destination-automation-bizevents
 
+OpenTelemetry-only mode (no OneAgent) adds routes on `service.namespace` instead of the host group:
+- Logs: `matchesValue(service.namespace,"destination-automation")` to `destination-automation-logs`
+- Spans: `matchesValue(service.namespace,"destination-automation")` to `destination-automation-otlp-spans`
+- BizEvents: extend the matching condition with `or matchesValue(service.namespace,"destination-automation")`
+
 ### Enable Workflows Authorization
 Open the Workflows app.  In the top right corner, click on the gear icon, then Authorization Settings.  Enable all Primary Permissions.  Enable all Secondary Permissions.  Click Save.
 
