@@ -74,6 +74,14 @@
             {
               "key": "feature_flag.result.value",
               "value": "{feature_flag.result.value}"
+            },
+            {
+              "key": "feature_flag.result.variant",
+              "value": "{feature_flag.result.variant}"
+            },
+            {
+              "key": "feature_flag.result.enabled",
+              "value": "{feature_flag.result.enabled}"
             }
           ]
         }
